@@ -1,0 +1,7 @@
+fpdf2==2.8.7
+python-dotenv==1.2.2
+Requests==2.34.0
+streamlit==1.56.0
+mistralai>=1.0.0
+pymupdf>=1.24.0        
+Pillow>=10.0.0    

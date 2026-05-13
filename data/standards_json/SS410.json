@@ -1,0 +1,50 @@
+{
+  "SS410": {
+    "parameters": [
+      {
+        "element": "C%",
+        "rv": "0.080 max."
+      },
+      {
+        "element": "Mn%",
+        "rv": "1.00 max."
+      },
+      {
+        "element": "P%",
+        "rv": "0.040 max."
+      },
+      {
+        "element": "S%",
+        "rv": "0.030 max."
+      },
+      {
+        "element": "Si%",
+        "rv": "1.00 max."
+      },
+      {
+        "element": "Cr%",
+        "rv": "11.50-13.50"
+      },
+      {
+        "element": "Ni%",
+        "rv": "0.60 max."
+      },
+      {
+        "element": "0.2% Proof strength (MPa)",
+        "rv": "205.0 min."
+      },
+      {
+        "element": "UTS MPa",
+        "rv": "415.0 min."
+      },
+      {
+        "element": "EL %",
+        "rv": "20.00 min."
+      },
+      {
+        "element": "HRB",
+        "rv": "89.0 max."
+      }
+    ]
+  }
+}

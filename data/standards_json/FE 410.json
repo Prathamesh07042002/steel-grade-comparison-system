@@ -1,0 +1,34 @@
+{
+  "FE 410": {
+    "parameters": [
+      {
+        "element": "C%",
+        "rv": "0.20 max."
+      },
+      {
+        "element": "Mn%",
+        "rv": "1.30 max."
+      },
+      {
+        "element": "P%",
+        "rv": "0.045 max."
+      },
+      {
+        "element": "S%",
+        "rv": "0.045 max."
+      },
+      {
+        "element": "YS MPa",
+        "rv": "255.0 min."
+      },
+      {
+        "element": "UTS MPa",
+        "rv": "410.0-520.0"
+      },
+      {
+        "element": "EL %",
+        "rv": "17.00 min."
+      }
+    ]
+  }
+}

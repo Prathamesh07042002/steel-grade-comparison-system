@@ -1,0 +1,15 @@
+# Skip Python virtual environment (very large, auto-generated)
+venv/
+
+# Skip Python cache files (auto-generated when you run the code)
+__pycache__/
+*.pyc
+
+# Skip your secret keys and passwords
+.env
+
+# Skip output/generated data you don't need
+data/output/
+data/comparison/
+data/to check/
+data/standards/

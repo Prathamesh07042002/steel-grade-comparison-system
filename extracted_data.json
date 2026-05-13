@@ -1,0 +1,238 @@
+[
+  {
+    "supply_spec": "SS 4010 DS13",
+    "drawing_designation": "",
+    "steel_grade_form": "Cold Rolled",
+    "mechanical_properties": {
+      "YS MPa": "280.0 max",
+      "UTS MPa": "270.0-370.0",
+      "Elongation %": "23.00 min",
+      "Hardness HRBW": "55.0 max",
+      "Erichsen cupping index mm": "10.4 min"
+    },
+    "chemical_properties": {
+      "P%": "0.040 max",
+      "S%": "0.035 max"
+    },
+    "source_pdf": "1 MM D513-----06.02.2026.pdf"
+  },
+  {
+    "supply_spec": "TDC No-CY11",
+    "drawing_designation": "DP590",
+    "steel_grade_form": "Cold Rolled",
+    "mechanical_properties": {
+      "YS MPa": "320.00-460.00",
+      "UTS MPa": "590.00 min.",
+      "Elongation %": "21.00 min."
+    },
+    "chemical_properties": {
+      "C%": "0.15 max.",
+      "Mn%": "2.00 max.",
+      "P%": "0.025 max.",
+      "S%": "0.015 max.",
+      "Si%": "0.50 max.",
+      "Al%": "0.090 max.",
+      "Ti%": "0.020 max."
+    },
+    "source_pdf": "1 MM DP590-----24.03.2026.pdf"
+  },
+  {
+    "supply_spec": "RMQP No. SI/RMQP/02 EDD 513",
+    "drawing_designation": "EDD513",
+    "steel_grade_form": "Cold Rolled Plate",
+    "mechanical_properties": {
+      "YS MPa": "145.0-180.0",
+      "UTS MPa": "270.0-320.0",
+      "Elongation %": "36.00 min",
+      "Erichsen Cupping Index Mm": "13.5"
+    },
+    "chemical_properties": {
+      "C%": "0.040 max",
+      "Mn%": "0.20 max",
+      "P%": "0.020 max",
+      "S%": "0.020 max",
+      "Al%": "0.020-0.060"
+    },
+    "source_pdf": "1 MM EDD513-----28.12.2024.pdf"
+  },
+  {
+    "supply_spec": "SS 4011SS",
+    "drawing_designation": "HSLA 340",
+    "steel_grade_form": "Plate Sample",
+    "mechanical_properties": {
+      "YS MPa": "340.0 min.",
+      "UTS MPa": "410.0-510.0",
+      "Elongation %": "21.0 min."
+    },
+    "chemical_properties": {
+      "C%": "0.10 max.",
+      "Mn%": "1.10 max.",
+      "P%": "0.025 max.",
+      "S%": "0.025 max.",
+      "Al%": "0.020-0.060",
+      "Ti%": "0.15 max."
+    },
+    "source_pdf": "1.2 mm  HSLA 340-----03.02.2026.pdf"
+  },
+  {
+    "supply_spec": "SS 4012A E46",
+    "drawing_designation": "BSK46",
+    "steel_grade_form": "Plate (Hot Rolled)",
+    "mechanical_properties": {
+      "YS MPa": "451.0-530.0",
+      "UTS MPa": "490.0-608.0",
+      "Elongation %": "21.00 min"
+    },
+    "chemical_properties": {
+      "C%": "0.12 max",
+      "Mn%": "1.00 max",
+      "P%": "0.025 max",
+      "S%": "0.025 max",
+      "Si%": "0.40 max",
+      "V%": "0.010-0.095",
+      "Al%": "0.020 min",
+      "Ti%": "0.010-0.045"
+    },
+    "source_pdf": "3 MM BSK46-----03.02.2026.pdf"
+  },
+  {
+    "supply_spec": "SS 4013A",
+    "drawing_designation": "DD 1079",
+    "steel_grade_form": "Plate (Cold Rolled or Hot Rolled not specified)",
+    "mechanical_properties": {
+      "Ultimate Tensile Stress (MPa)": "260-390",
+      "Elongation (%)": "32 min",
+      "Bend Test": "180\u00b0 bend, no crack observed (1T mandrel)"
+    },
+    "chemical_properties": {
+      "C%": "0.10 max",
+      "Mn%": "0.40 max",
+      "P%": "0.035 max",
+      "S%": "0.035 max"
+    },
+    "source_pdf": "3 MM DD1079-----03.02.2026.pdf"
+  },
+  {
+    "supply_spec": "ASTM A240/240m-2022",
+    "drawing_designation": "SS410",
+    "steel_grade_form": "Plate",
+    "mechanical_properties": {
+      "0.2% Proof strength (MPa)": "316.85",
+      "0.2% Proof strength (MPa) min": "205.0",
+      "Ultimate Tensile Stress (MPa)": "514.56",
+      "Ultimate Tensile Stress (MPa) min": "415.0",
+      "Elongation (%)": "25.86",
+      "Elongation (%) min": "20.00",
+      "Hardness (HRB)": "86.63",
+      "Hardness (HRB) max": "89.0"
+    },
+    "chemical_properties": {
+      "Carbon (C%)": "0.0242",
+      "Carbon (C%) max": "0.080",
+      "Manganese (Mn%)": "0.381",
+      "Manganese (Mn%) max": "1.00",
+      "Phosphorus (P%)": "0.0268",
+      "Phosphorus (P%) max": "0.040",
+      "Sulphur (S%)": "0.0104",
+      "Sulphur (S%) max": "0.030",
+      "Silicon (Si%)": "0.275",
+      "Silicon (Si%) max": "1.00",
+      "Chromium (Cr%)": "12.05",
+      "Chromium (Cr%) range": "11.50-13.50",
+      "Nickel (Ni%)": "0.128",
+      "Nickel (Ni%) max": "0.60"
+    },
+    "source_pdf": "3 MM SS410-----13.03.2026.pdf"
+  },
+  {
+    "supply_spec": "SS 4013A",
+    "drawing_designation": "Fe410",
+    "steel_grade_form": "Plate (Hot Rolled)",
+    "mechanical_properties": {
+      "YS MPa": "255.0 min.",
+      "UTS MPa": "410.0-520.0",
+      "Elongation %": "17.00 min."
+    },
+    "chemical_properties": {
+      "C%": "0.20 max.",
+      "Mn%": "1.30 max.",
+      "P%": "0.045 max.",
+      "S%": "0.045 max."
+    },
+    "source_pdf": "3 mm FE 410-----25.01.2026.pdf"
+  },
+  {
+    "supply_spec": "IS 3074:2013 (RA 2018) Grade ERW-1",
+    "drawing_designation": "ERW-1",
+    "steel_grade_form": "Electric Resistance Welded (ERW) Pipe",
+    "mechanical_properties": {
+      "YS MPa": "160.0 min.",
+      "UTS MPa": "310.0 min.",
+      "Elongation %": "20.00 min.",
+      "Yield Stress (N/mm\u00b2)": 374.62,
+      "Ultimate Tensile Stress (N/mm\u00b2)": 398.41,
+      "Elongation (%)": 33.55
+    },
+    "chemical_properties": {
+      "C%": "0.12 max.",
+      "Mn%": "0.60 max.",
+      "P%": "0.04 max.",
+      "S%": "0.04 max.",
+      "Carbon": 0.0631,
+      "Manganese": 0.291,
+      "Phosphorus": 0.0231,
+      "Sulphur": 0.0057
+    },
+    "source_pdf": "30 x 30 x 2 ERW-1-----06.02.2026.pdf"
+  },
+  {
+    "supply_spec": "SS 4012A",
+    "drawing_designation": "E34",
+    "steel_grade_form": "Plate",
+    "mechanical_properties": {
+      "YS MPa": "333-412",
+      "UTS MPa": "392-490",
+      "Elongation %": "27 min"
+    },
+    "chemical_properties": {
+      "C%": "0.100 max",
+      "Mn%": "0.700 max",
+      "P%": "0.030 max",
+      "S%": "0.030 max",
+      "Si%": "0.200 max",
+      "V%": "0.095 max",
+      "Al%": "0.020-0.060",
+      "Nb%": "0.055 max",
+      "Ti%": "0.045 max",
+      "Nb+V+Ti%": "0.200 max"
+    },
+    "source_pdf": "4 mm E34-----24.04.2026.pdf"
+  },
+  {
+    "supply_spec": "IS 3074:2013 (RA 2018) Grade CEW-1",
+    "drawing_designation": "CEW-1",
+    "steel_grade_form": "Cold Rolled Electric Welded (CEW)",
+    "mechanical_properties": {
+      "YS MPa": "160.0 min",
+      "UTS MPa": "310.0 min",
+      "Elongation %": "23.03"
+    },
+    "chemical_properties": {
+      "C%": "0.12 max",
+      "Mn%": "0.60 max",
+      "P%": "0.040 max",
+      "S%": "0.040 max"
+    },
+    "source_pdf": "OD 45 \u00d7 1.5 mm-----06.02.2025.pdf"
+  },
+  {
+    "supply_spec": "SS4045S1",
+    "drawing_designation": "ERW-370",
+    "steel_grade_form": "ERW (Electric Resistance Welded)",
+    "mechanical_properties": {},
+    "chemical_properties": {
+      "Nb+V+Ti%": "0.029 (0.02 min)"
+    },
+    "source_pdf": "OD 50.8 X 5.5 Thk(SI)-----06.02.2026-1.pdf"
+  }
+]

@@ -1,0 +1,10 @@
+{
+  "OD 50.8 X 5.5 Thk(SI)": {
+    "parameters": [
+      {
+        "element": "%Nb+V+Ti",
+        "rv": "0.02 min"
+      }
+    ]
+  }
+}

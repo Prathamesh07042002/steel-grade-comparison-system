@@ -1,0 +1,58 @@
+{
+  "E34": {
+    "parameters": [
+      {
+        "element": "C%",
+        "rv": "0.100 max."
+      },
+      {
+        "element": "Mn%",
+        "rv": "0.700 max."
+      },
+      {
+        "element": "P%",
+        "rv": "0.030 max."
+      },
+      {
+        "element": "S%",
+        "rv": "0.030 max."
+      },
+      {
+        "element": "Si%",
+        "rv": "0.200 max."
+      },
+      {
+        "element": "V%",
+        "rv": "0.095 max."
+      },
+      {
+        "element": "Al%",
+        "rv": "0.020-0.060"
+      },
+      {
+        "element": "Nb%",
+        "rv": "0.055 max."
+      },
+      {
+        "element": "Ti%",
+        "rv": "0.045 max."
+      },
+      {
+        "element": "Nb+V+Ti%",
+        "rv": "0.200 max."
+      },
+      {
+        "element": "YS MPa",
+        "rv": "333.00-412.00"
+      },
+      {
+        "element": "UTS MPa",
+        "rv": "392.00-490.00"
+      },
+      {
+        "element": "EL %",
+        "rv": "27.00 min."
+      }
+    ]
+  }
+}
