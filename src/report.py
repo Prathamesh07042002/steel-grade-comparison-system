@@ -1,6 +1,10 @@
 """
 report.py — PDF report generator
 Generates a downloadable PDF comparison report using fpdf2.
+
+Changes in this version:
+  • Properties in test but NOT in standard → OK? shows "N/A" (neutral, not a fail).
+  • The "In standard but NOT in test" footnote section is removed entirely.
 """
 
 from datetime import datetime
@@ -9,31 +13,18 @@ from datetime import datetime
 # ── Unicode sanitizer ─────────────────────────────────────────────────────────
 
 def _safe(text: str, max_len: int = None) -> str:
-    """
-    Replace common Unicode characters that Helvetica (Latin-1) cannot render,
-    then strip anything still outside Latin-1 so fpdf2 never raises
-    FPDFUnicodeEncodingException.
-    """
     replacements = {
-        "\u2013": "-",    # en-dash  –
-        "\u2014": "-",    # em-dash  —
-        "\u2018": "'",    # left single quote  '
-        "\u2019": "'",    # right single quote '
-        "\u201c": '"',    # left double quote  "
-        "\u201d": '"',    # right double quote "
-        "\u00b0": "deg",  # degree sign  °
-        "\u00b1": "+/-",  # plus-minus  ±
-        "\u2264": "<=",   # less-than-or-equal  ≤
-        "\u2265": ">=",   # greater-than-or-equal  ≥
-        "\u00d7": "x",    # multiplication sign  ×
-        "\u00f7": "/",    # division sign  ÷
-        "\u2022": "-",    # bullet  •
-        "\u2026": "...",  # ellipsis  …
+        "\u2013": "-", "\u2014": "-",
+        "\u2018": "'", "\u2019": "'",
+        "\u201c": '"', "\u201d": '"',
+        "\u00b0": "deg", "\u00b1": "+/-",
+        "\u2264": "<=", "\u2265": ">=",
+        "\u00d7": "x", "\u00f7": "/",
+        "\u2022": "-", "\u2026": "...",
     }
     text = str(text)
     for char, sub in replacements.items():
         text = text.replace(char, sub)
-    # Drop anything still outside Latin-1
     text = text.encode("latin-1", errors="ignore").decode("latin-1")
     if max_len is not None:
         text = text[:max_len]
@@ -57,6 +48,7 @@ def generate_pdf_report(
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=15)
 
+    # ── Title ──────────────────────────────────────────────────────────────────
     pdf.set_font("Helvetica", "B", 18)
     pdf.set_fill_color(20, 40, 80)
     pdf.set_text_color(255, 255, 255)
@@ -76,11 +68,40 @@ def generate_pdf_report(
     )
     pdf.ln(5)
 
-    all_m       = list(chem_result.get("matched", {}).values()) + \
-                  list(mech_result.get("matched", {}).values())
-    pass_count  = sum(1 for m in all_m if m.get("within_range"))
-    fail_count  = sum(1 for m in all_m if not m.get("within_range"))
-    total       = len(all_m)
+    # ── Overall verdict ────────────────────────────────────────────────────────
+    # Only "matched" rows that failed count toward fail_count.
+    # "not_in_standard" rows are excluded from pass/fail scoring.
+    def _all_rows(result):
+        rows = []
+        for prop, info in result.get("matched", {}).items():
+            rows.append({
+                "prop":        prop,
+                "test_value":  info.get("test_value", ""),
+                "std_value":   info.get("standard_value", ""),
+                "ok":          info.get("within_range", False),
+                "note":        info.get("note", ""),
+                "in_standard": True,
+            })
+        for prop, val in result.get("not_in_standard", {}).items():
+            rows.append({
+                "prop":        prop,
+                "test_value":  val,
+                "std_value":   "-",
+                "ok":          None,   # None = N/A, not scored
+                "note":        "not in std",
+                "in_standard": False,
+            })
+        return rows
+
+    chem_rows = _all_rows(chem_result)
+    mech_rows = _all_rows(mech_result)
+    all_rows  = chem_rows + mech_rows
+
+    # Score only rows that have a standard to compare against
+    scored_rows = [r for r in all_rows if r["in_standard"]]
+    pass_count  = sum(1 for r in scored_rows if r["ok"])
+    fail_count  = sum(1 for r in scored_rows if not r["ok"])
+    total       = len(scored_rows)
 
     verdict = (
         "PASS"         if fail_count == 0 and total > 0 else
@@ -103,6 +124,7 @@ def generate_pdf_report(
     )
     pdf.ln(4)
 
+    # ── Info rows ──────────────────────────────────────────────────────────────
     def info_row(label, value):
         pdf.set_font("Helvetica", "B", 9)
         pdf.set_fill_color(240, 240, 240)
@@ -112,28 +134,29 @@ def generate_pdf_report(
         pdf.set_fill_color(255, 255, 255)
         pdf.cell(0, 7, _safe(f"  {value}"), ln=True, fill=True)
 
-    info_row("Test File",        test_filename)
-    info_row("Supply Spec",      selected_spec)
-    info_row("Designation",      selected_desig)
-    info_row("Pipeline",         pipeline)
-    info_row("Properties OK",    f"{pass_count} / {total}")
+    info_row("Test File",     test_filename)
+    info_row("Supply Spec",   selected_spec)
+    info_row("Designation",   selected_desig)
+    info_row("Pipeline",      pipeline)
+    info_row("Properties OK", f"{pass_count} / {total}")
     pdf.ln(6)
 
-    def prop_section(title, props):
-        if not props:
+    # ── Section printer ────────────────────────────────────────────────────────
+    def prop_section(title, result, rows):
+        if not rows:
             return
-        matched     = props.get("matched", {})
-        not_in_std  = props.get("not_in_standard", {})
-        not_in_test = props.get("not_in_test", {})
 
+        # Section header
         pdf.set_font("Helvetica", "B", 11)
         pdf.set_fill_color(20, 40, 80)
         pdf.set_text_color(255, 255, 255)
         pdf.cell(0, 9, _safe(f"  {title}"), ln=True, fill=True)
         pdf.ln(1)
 
-        col_w = [58, 40, 52, 18, 26]
+        col_w = [58, 40, 52, 18, 30]
         headers = ["Property", "Test Value", "Standard Value", "OK?", "Note"]
+
+        # Column headers
         pdf.set_font("Helvetica", "B", 8)
         pdf.set_fill_color(220, 220, 220)
         pdf.set_text_color(30, 30, 30)
@@ -141,42 +164,114 @@ def generate_pdf_report(
             pdf.cell(w, 7, f" {hdr}", border="B", fill=True)
         pdf.ln()
 
-        for prop, info in matched.items():
-            ok = info.get("within_range", False)
-            pdf.set_fill_color(*(240, 255, 240) if ok else (255, 235, 235))
+        # Data rows
+        for r in rows:
+            ok     = r["ok"]      # True / False / None (N/A)
+            in_std = r["in_standard"]
+
+            if ok is True:
+                bg = (240, 255, 240)   # light green  — passed
+            elif ok is None:
+                bg = (255, 245, 220)   # light amber  — no standard to compare
+            else:
+                bg = (255, 235, 235)   # light red    — failed standard
+
+            pdf.set_fill_color(*bg)
             pdf.set_font("Helvetica", "", 8)
             pdf.set_text_color(30, 30, 30)
-            pdf.cell(col_w[0], 6, _safe(f" {prop}",                          max_len=29), fill=True)
-            pdf.cell(col_w[1], 6, _safe(f" {info.get('test_value','')}",     max_len=19), fill=True)
-            pdf.cell(col_w[2], 6, _safe(f" {info.get('standard_value','')}",  max_len=23), fill=True)
-            pdf.set_text_color(0, 130, 0) if ok else pdf.set_text_color(180, 40, 40)
-            pdf.cell(col_w[3], 6, _safe(f" {'YES' if ok else 'NO'}"), fill=True)
+            pdf.cell(col_w[0], 6, _safe(f" {r['prop']}",       max_len=29), fill=True)
+            pdf.cell(col_w[1], 6, _safe(f" {r['test_value']}", max_len=19), fill=True)
+            pdf.cell(col_w[2], 6, _safe(f" {r['std_value']}",  max_len=23), fill=True)
+
+            # OK? column
+            if ok is True:
+                pdf.set_text_color(0, 130, 0)
+                ok_label = "YES"
+            elif ok is None:
+                pdf.set_text_color(30, 30, 30)    # plain black for "-"
+                ok_label = "-"
+            else:
+                pdf.set_text_color(180, 40, 40)
+                ok_label = "NO"
+
+            pdf.cell(col_w[3], 6, _safe(f" {ok_label}"), fill=True)
+
             pdf.set_text_color(80, 80, 80)
-            pdf.cell(col_w[4], 6, _safe(f" {info.get('note','')}",           max_len=15), fill=True, ln=True)
+            pdf.cell(col_w[4], 6, _safe(f" {r['note']}", max_len=18), fill=True, ln=True)
 
-        if not_in_std:
-            pdf.ln(1)
-            pdf.set_font("Helvetica", "BI", 8)
-            pdf.set_text_color(140, 0, 0)
-            pdf.cell(0, 6, "  In test but NOT in standard:", ln=True)
-            pdf.set_font("Helvetica", "", 8)
-            pdf.set_text_color(60, 60, 60)
-            for p, v in not_in_std.items():
-                pdf.cell(0, 5, _safe(f"    - {p}: {v}"), ln=True)
-
-        if not_in_test:
-            pdf.ln(1)
-            pdf.set_font("Helvetica", "BI", 8)
-            pdf.set_text_color(0, 80, 140)
-            pdf.cell(0, 6, "  In standard but NOT in test:", ln=True)
-            pdf.set_font("Helvetica", "", 8)
-            pdf.set_text_color(60, 60, 60)
-            for p, v in not_in_test.items():
-                pdf.cell(0, 5, _safe(f"    + {p}: {v}"), ln=True)
+        # "In standard but NOT in test" footnote — REMOVED per user request
 
         pdf.ln(5)
 
-    prop_section("Chemical Properties",   chem_result)
-    prop_section("Mechanical Properties", mech_result)
+    prop_section("Chemical Properties",   chem_result, chem_rows)
+    prop_section("Mechanical Properties", mech_result, mech_rows)
+
+    # ── Legend ─────────────────────────────────────────────────────────────────
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_text_color(30, 30, 30)
+    pdf.cell(0, 6, "  Legend:", ln=True)
+    pdf.set_font("Helvetica", "", 8)
+
+    legend_items = [
+        ((240, 255, 240), "Within standard range  (PASS)"),
+        ((255, 235, 235), "Outside standard range  (FAIL)"),
+        ((255, 245, 220), "No standard defined for this property  (-)"),
+    ]
+    for bg, label in legend_items:
+        pdf.set_fill_color(*bg)
+        pdf.cell(8, 5, "", fill=True)
+        pdf.set_fill_color(255, 255, 255)
+        pdf.cell(0, 5, _safe(f"  {label}"), ln=True)
 
     return bytes(pdf.output())
+
+
+# ── Quick smoke-test ───────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    chem_result = {
+        "matched": {
+            "P%": {"test_value": 0.0180, "standard_value": "0.040 max.", "within_range": True,  "note": "max 0.040"},
+            "S%": {"test_value": 0.0070, "standard_value": "0.035 max.", "within_range": True,  "note": "max 0.035"},
+        },
+        "not_in_standard": {
+            "C%":    0.0460,
+            "Mn%":   0.1840,
+            "Si%":   0.0060,
+            "N PPM": 35.000,
+            "Al%":   0.0500,
+        },
+        "not_in_test": {
+            "HRBW":                        "55.0 max.",
+            "Erichsen cupping index (mm)": "10.4 min.",
+        },
+    }
+
+    mech_result = {
+        "matched": {
+            "YS MPa":  {"test_value": 196, "standard_value": "280.0 max.",  "within_range": True, "note": "max 280.0"},
+            "UTS MPa": {"test_value": 307, "standard_value": "270.0-370.0", "within_range": True, "note": "range 270-370"},
+            "EL %":    {"test_value": 45,  "standard_value": "23.00 min.",  "within_range": True, "note": "min 23.00"},
+        },
+        "not_in_standard": {
+            "HRB":   44.0000,
+            "RA pH": 1.2400,
+            "BEND":  "OK",
+            "EH MM": 10.8000,
+        },
+        "not_in_test": {},
+    }
+
+    pdf_bytes = generate_pdf_report(
+        test_filename  = "1.45MM D-513_TATA STEEL_52705_050526.pdf",
+        selected_spec  = "D513",
+        selected_desig = "D513",
+        chem_result    = chem_result,
+        mech_result    = mech_result,
+        pipeline       = "Manual",
+    )
+
+    out_path = "/mnt/user-data/outputs/Steel_Grade_Comparison_Report.pdf"
+    with open(out_path, "wb") as f:
+        f.write(pdf_bytes)
+    print(f"Written {len(pdf_bytes):,} bytes -> {out_path}")
