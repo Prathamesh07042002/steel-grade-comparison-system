@@ -20,7 +20,7 @@ COPY . .
 RUN chmod +x ./entrypoint.sh
 
 # layer 8: setup listener port for the app
-EXPOSE 8506
+EXPOSE 8510
 
 # layer 9: run entrypoint.sh script
 ENTRYPOINT ["./entrypoint.sh"]
