@@ -6,7 +6,7 @@ __pycache__/
 *.pyc
 
 # Skip your secret keys and passwords
-.env
+# .env
 
 # Skip output/generated data you don't need
 data/output/
