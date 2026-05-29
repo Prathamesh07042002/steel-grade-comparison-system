@@ -1,5 +1,4 @@
-
-
+import os
 import base64
 import json
 import os
@@ -15,6 +14,7 @@ from src.ocr        import extract_text_from_pdf
 from src.extractor  import extract_json, extract_test_json
 from src.comparator import direct_compare, llm_compare
 from src.report     import generate_pdf_report
+from ga             import load_ga, track_event
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -66,6 +66,9 @@ CACHE_FILE          = "extracted_data.json"
 BATCH_SLEEP_SECONDS = 4
 
 os.makedirs(STANDARDS_JSON_DIR, exist_ok=True)
+
+# ── Load GA ───────────────────────────────────────────────────────────────────
+load_ga("Test Certificate Compliance")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -197,14 +200,7 @@ def render_extracted_values(test_entry: dict):
             st.caption("None extracted.")
 
 
-
-
 def browse_standards_expander(key_suffix: str):
-    """
-    'Browse Standards' expander shown at the bottom of each pipeline.
-    Selecting a standard immediately shows its full property preview.
-    No raw JSON button.
-    """
     st.divider()
     with st.expander("📦 Browse Standards", expanded=False):
         std_files = load_std_files()
@@ -244,6 +240,7 @@ def browse_standards_expander(key_suffix: str):
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.title("🔩 Steel Grade Comparison System")
+load_ga("Test Certificate Compliance")
 st.caption("Manual and automatic comparison of mill certificates against steel standards.")
 
 if not os.getenv("MISTRAL_API_KEY"):
@@ -251,7 +248,6 @@ if not os.getenv("MISTRAL_API_KEY"):
 else:
     st.success("✅ API key loaded from .env")
 
-# ── Tabs — Standards Library tab REMOVED ─────────────────────────────────────
 tab_p1, tab_p2 = st.tabs([
     "🔬 Pipeline 1 — Manual Compare",
     "🤖 Pipeline 2 — Auto Match",
@@ -269,7 +265,6 @@ with tab_p1:
     )
     st.divider()
 
-    # ── Step 1: Upload ────────────────────────────────────────────────────────
     st.markdown("### 📄 Step 1 — Upload test PDF")
     up1 = st.file_uploader(
         "Mill certificate / test report PDF",
@@ -280,11 +275,19 @@ with tab_p1:
     if not up1:
         st.info("⬆️ Upload a PDF to get started.")
     else:
+        # ── TRACK: file uploaded in Pipeline 1 ───────────────────────────────
+        if st.session_state.get("p1_last_uploaded") != up1.name:
+            st.session_state["p1_last_uploaded"] = up1.name
+            track_event(
+                "file_uploaded",
+                feature="pipeline_1_manual",
+                app_name="Test Certificate Compliance"
+            )
+
         with st.expander("👁️ Preview uploaded PDF", expanded=False):
             st.markdown(pdf_preview_html(up1.read()), unsafe_allow_html=True)
             up1.seek(0)
 
-        # ── Step 2: Pick standard ─────────────────────────────────────────────
         st.divider()
         st.markdown("### 🎯 Step 2 — Choose standard to compare against")
 
@@ -300,7 +303,6 @@ with tab_p1:
             sel_display   = st.selectbox("Standard", display_names, key="p1_std_file")
             sel_file      = sel_display + ".json"
 
-            # Load + preview selected standard immediately (no button needed)
             std_raw            = load_std_data(sel_file)
             grade_key          = next(iter(std_raw))
             params             = std_raw[grade_key].get("parameters", [])
@@ -327,13 +329,17 @@ with tab_p1:
                     else:
                         st.caption("None available")
 
-            # ── Step 3: Run ───────────────────────────────────────────────────
             st.divider()
             st.markdown("### ⚡ Step 3 — Run comparison")
 
             run_key = f"p1__{up1.name}__{sel_file}"
 
             if st.button("▶ Compare Now", use_container_width=True, type="primary", key="p1_run"):
+                track_event(
+                            "comparison_run",
+                            feature="pipeline_1_manual",
+                            app_name="Test Certificate Compliance"
+                        )
                 st.session_state.pop("p1_result",    None)
                 st.session_state.pop("p1_key",       None)
                 st.session_state["p1_triggered"] = True
@@ -384,6 +390,15 @@ with tab_p1:
                 }
                 st.session_state["p1_key"] = run_key
 
+                # ── TRACK: comparison run in Pipeline 1 ──────────────────────
+                all_matched = (
+                    list(chem_res.get("matched", {}).values()) +
+                    list(mech_res.get("matched", {}).values())
+                )
+                pass_count = sum(1 for m in all_matched if m["within_range"])
+                total      = len(all_matched)
+                
+
             elif "p1_result" not in st.session_state:
                 st.info("👆 Click **Compare Now** to run the comparison.")
 
@@ -400,8 +415,6 @@ with tab_p1:
                     )
 
                 st.divider()
-
-                # ── EXTRACTED VALUES shown right here, before comparison ──────
                 render_extracted_values(te)
 
                 st.divider()
@@ -422,17 +435,34 @@ with tab_p1:
                     pdf_bytes = generate_pdf_report(
                         up1.name, grade_key, grade_key, cr, mr, pipeline="Manual"
                     )
-                    st.download_button(
+
+                    # ── TRACK: download button click in Pipeline 1 ────────────
+                    # We use a session_state flag: if it flips True → False, a
+                    # download was triggered on the previous rerun.
+                    p1_dl_key = f"p1_dl__{run_key}"
+                    if st.session_state.get(p1_dl_key) is True:
+                        st.session_state[p1_dl_key] = False
+                        
+                        
+
+                    if st.download_button(
                         "⬇️ Download PDF Report",
                         data=pdf_bytes,
                         file_name=f"p1_comparison_{os.path.splitext(up1.name)[0]}.pdf",
                         mime="application/pdf",
                         use_container_width=True,
-                    )
+                        on_click=lambda: st.session_state.update({p1_dl_key: True}),
+                    ):
+                        track_event(
+                            "file_downloaded",
+                            feature="pipeline_1_manual",
+                            app_name="Test Certificate Compliance"
+                            )
+                        pass  # tracking handled above on next rerun
+
                 except ImportError:
                     st.warning("Install fpdf2 for PDF export: `pip install fpdf2`")
 
-    # ── Browse Standards at bottom of Pipeline 1 ─────────────────────────────
     browse_standards_expander("p1")
 
 
@@ -447,7 +477,6 @@ with tab_p2:
     )
     st.divider()
 
-    # ── Step 1: Upload ────────────────────────────────────────────────────────
     st.markdown("### 📄 Step 1 — Upload test PDF")
     up2 = st.file_uploader(
         "Mill certificate / test report PDF",
@@ -458,11 +487,19 @@ with tab_p2:
     if not up2:
         st.info("⬆️ Upload a PDF to get started.")
     else:
+        # ── TRACK: file uploaded in Pipeline 2 ───────────────────────────────
+        if st.session_state.get("p2_last_uploaded") != up2.name:
+            st.session_state["p2_last_uploaded"] = up2.name
+            track_event(
+                "file_uploaded",
+                feature="pipeline_2_auto",
+                app_name="Test Certificate Compliance"
+            )
+
         with st.expander("👁️ Preview uploaded PDF", expanded=False):
             st.markdown(pdf_preview_html(up2.read()), unsafe_allow_html=True)
             up2.seek(0)
 
-        # ── Step 2: Run ───────────────────────────────────────────────────────
         st.divider()
         st.markdown("### ⚡ Step 2 — Run auto-match")
         st.info(
@@ -473,6 +510,11 @@ with tab_p2:
         run2_key = f"p2__{up2.name}"
 
         if st.button("▶ Find Best Match", use_container_width=True, type="primary", key="p2_run"):
+            track_event(
+                "best_match",
+                feature="pipeline_2_auto",
+                app_name="Test Certificate Compliance"
+            )
             st.session_state.pop("p2_result", None)
             st.session_state.pop("p2_key",    None)
             st.session_state["p2_triggered"] = True
@@ -530,6 +572,12 @@ with tab_p2:
             st.session_state["p2_result"] = {"result": result, "test_entry": test_entry}
             st.session_state["p2_key"]    = run2_key
 
+            # ── TRACK: auto-match run in Pipeline 2 ──────────────────────────
+            best_match  = result.get("best_match", {})
+            match_score = best_match.get("overall_score", 0)
+            verdict     = best_match.get("verdict", result.get("status", "unknown"))
+            
+
         elif "p2_result" not in st.session_state:
             st.info("👆 Click **Find Best Match** to run auto-matching.")
 
@@ -545,8 +593,6 @@ with tab_p2:
                 )
 
             st.divider()
-
-            # ── EXTRACTED VALUES shown right here, before match result ────────
             render_extracted_values(test_entry)
 
             st.divider()
@@ -639,15 +685,29 @@ with tab_p2:
                         cr_llm, mr_llm,
                         pipeline="Auto",
                     )
-                    st.download_button(
+
+                    # ── TRACK: download button click in Pipeline 2 ────────────
+                    p2_dl_key = f"p2_dl__{run2_key}"
+                    if st.session_state.get(p2_dl_key) is True:
+                        st.session_state[p2_dl_key] = False
+                        
+
+                    if st.download_button(
                         "⬇️ Download PDF Report",
                         data=pdf_bytes,
                         file_name=f"p2_automatch_{os.path.splitext(up2.name)[0]}.pdf",
                         mime="application/pdf",
                         use_container_width=True,
-                    )
+                        on_click=lambda: st.session_state.update({p2_dl_key: True}),
+                    ):
+                        track_event(
+                                "file_downloaded",
+                                feature="pipeline_2_auto",
+                                app_name="Test Certificate Compliance"
+                                )
+                        pass  # tracking handled above on next rerun
+
                 except ImportError:
                     st.warning("Install fpdf2 for PDF export: `pip install fpdf2`")
 
-    # ── Browse Standards at bottom of Pipeline 2 ─────────────────────────────
     browse_standards_expander("p2")
