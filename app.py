@@ -397,7 +397,7 @@ with tab_p1:
                 )
                 pass_count = sum(1 for m in all_matched if m["within_range"])
                 total      = len(all_matched)
-                
+
 
             elif "p1_result" not in st.session_state:
                 st.info("👆 Click **Compare Now** to run the comparison.")
@@ -432,18 +432,17 @@ with tab_p1:
 
                 st.divider()
                 try:
+                    # ── PIPELINE 1: pass section_txw from test_entry ──────────
                     pdf_bytes = generate_pdf_report(
-                        up1.name, grade_key, grade_key, cr, mr, pipeline="Manual"
+                        up1.name, grade_key, grade_key, cr, mr,
+                        pipeline="Manual",
+                        section_txw=te.get("section_txw", []),
                     )
 
                     # ── TRACK: download button click in Pipeline 1 ────────────
-                    # We use a session_state flag: if it flips True → False, a
-                    # download was triggered on the previous rerun.
                     p1_dl_key = f"p1_dl__{run_key}"
                     if st.session_state.get(p1_dl_key) is True:
                         st.session_state[p1_dl_key] = False
-                        
-                        
 
                     if st.download_button(
                         "⬇️ Download PDF Report",
@@ -458,7 +457,7 @@ with tab_p1:
                             feature="pipeline_1_manual",
                             app_name="Test Certificate Compliance"
                             )
-                        pass  # tracking handled above on next rerun
+                        pass
 
                 except ImportError:
                     st.warning("Install fpdf2 for PDF export: `pip install fpdf2`")
@@ -576,7 +575,6 @@ with tab_p2:
             best_match  = result.get("best_match", {})
             match_score = best_match.get("overall_score", 0)
             verdict     = best_match.get("verdict", result.get("status", "unknown"))
-            
 
         elif "p2_result" not in st.session_state:
             st.info("👆 Click **Find Best Match** to run auto-matching.")
@@ -678,19 +676,20 @@ with tab_p2:
 
                 st.divider()
                 try:
+                    # ── PIPELINE 2: pass section_txw from test_entry ──────────
                     pdf_bytes = generate_pdf_report(
                         up2.name,
                         best.get("standard_file",    "Auto"),
                         best.get("standard_product", "Auto"),
                         cr_llm, mr_llm,
                         pipeline="Auto",
+                        section_txw=test_entry.get("section_txw", []),
                     )
 
                     # ── TRACK: download button click in Pipeline 2 ────────────
                     p2_dl_key = f"p2_dl__{run2_key}"
                     if st.session_state.get(p2_dl_key) is True:
                         st.session_state[p2_dl_key] = False
-                        
 
                     if st.download_button(
                         "⬇️ Download PDF Report",
@@ -705,7 +704,7 @@ with tab_p2:
                                 feature="pipeline_2_auto",
                                 app_name="Test Certificate Compliance"
                                 )
-                        pass  # tracking handled above on next rerun
+                        pass
 
                 except ImportError:
                     st.warning("Install fpdf2 for PDF export: `pip install fpdf2`")

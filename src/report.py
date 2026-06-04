@@ -5,6 +5,7 @@ Generates a downloadable PDF comparison report using fpdf2.
 Changes in this version:
   • Properties in test but NOT in standard → OK? shows "N/A" (neutral, not a fail).
   • The "In standard but NOT in test" footnote section is removed entirely.
+  • Section (TxW) values from the test certificate are shown in the info block.
 """
 
 from datetime import datetime
@@ -40,6 +41,7 @@ def generate_pdf_report(
     chem_result: dict,
     mech_result: dict,
     pipeline: str = "Manual",
+    section_txw: list = None,      # ← list of T×W values from the test certificate
 ) -> bytes:
 
     from fpdf import FPDF
@@ -137,6 +139,12 @@ def generate_pdf_report(
     info_row("Test File",     test_filename)
     info_row("Supply Spec",   selected_spec)
     info_row("Designation",   selected_desig)
+
+    # ── Section (T×W) — from test certificate only ─────────────────────────
+    if section_txw:
+        txw_str = "  |  ".join(dict.fromkeys(str(v) for v in section_txw))
+        info_row("Section (TxW)", txw_str)
+
     info_row("Pipeline",      pipeline)
     info_row("Properties OK", f"{pass_count} / {total}")
     pdf.ln(6)
@@ -263,12 +271,13 @@ if __name__ == "__main__":
     }
 
     pdf_bytes = generate_pdf_report(
-        test_filename  = "1.45MM D-513_TATA STEEL_52705_050526.pdf",
-        selected_spec  = "D513",
-        selected_desig = "D513",
+        test_filename  = "3MM_E-46_POSHS_0003_030526.pdf",
+        selected_spec  = "E46",
+        selected_desig = "E46",
         chem_result    = chem_result,
         mech_result    = mech_result,
         pipeline       = "Manual",
+        section_txw    = ["3.000x1250.000mm", "3.000x1250.000mm"],
     )
 
     out_path = "/mnt/user-data/outputs/Steel_Grade_Comparison_Report.pdf"

@@ -2,6 +2,14 @@
   "D513": {
     "parameters": [
       {
+        "element": "C%",
+        "rv": "0.12 max."
+      },
+      {
+        "element": "Mn%",
+        "rv": "0.40 max."
+      },
+      {
         "element": "P%",
         "rv": "0.040 max."
       },
@@ -24,10 +32,6 @@
       {
         "element": "HRBW",
         "rv": "55.0 max."
-      },
-      {
-        "element": "Erichsen cupping index (mm)",
-        "rv": "10.4 min."
       }
     ]
   }
