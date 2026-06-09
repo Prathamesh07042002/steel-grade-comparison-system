@@ -817,10 +817,6 @@ body {
   }
 }
 
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-
 .property-table th {
   background: #f0f4ff;
   padding: 10px;
