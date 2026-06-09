@@ -151,11 +151,6 @@ Return STRICT JSON ONLY — no markdown, no explanation:
     return result
 
 
-# ── Pipeline 2: LLM auto-match comparison ────────────────────────────────────
-
-
-
-
 # ── Helper: recount from structured LLM data ─────────────────────────────────
 
 def _recount_from_data(props: dict) -> tuple[int, int]:
@@ -315,7 +310,7 @@ Extra properties in the test report are completely IGNORED.
 Example:
   Standard defines 7 properties.
   Test report contains 20 properties.
-  If all 7 standard properties are satisfied → score = 7/7 = 1.0 = MATCHED.
+  If all 7 standard properties are satisfied → score = 7/7 = 1.0 → MATCHED.
   The extra 13 test properties do NOT reduce the score.
 
 ━━━ STEP 1 — Classify every standard-defined property into one bucket ━━━

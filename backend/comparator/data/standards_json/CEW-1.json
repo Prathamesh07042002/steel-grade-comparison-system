@@ -1,0 +1,30 @@
+{
+  "OD 45 × 1.5 mm": {
+    "parameters": [
+      {
+        "element": "C%",
+        "rv": "0.12 max."
+      },
+      {
+        "element": "Mn%",
+        "rv": "0.60 max."
+      },
+      {
+        "element": "P%",
+        "rv": "0.040 max."
+      },
+      {
+        "element": "S%",
+        "rv": "0.040 max."
+      },
+      {
+        "element": "YS MPa",
+        "rv": "160.0 min."
+      },
+      {
+        "element": "UTS MPa",
+        "rv": "310.0 min."
+      }
+    ]
+  }
+}

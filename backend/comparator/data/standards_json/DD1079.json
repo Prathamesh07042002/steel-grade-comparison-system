@@ -1,0 +1,30 @@
+{
+  "DD1079": {
+    "parameters": [
+      {
+        "element": "C%",
+        "rv": "0.10 max."
+      },
+      {
+        "element": "Mn%",
+        "rv": "0.40 max."
+      },
+      {
+        "element": "P%",
+        "rv": "0.035 max."
+      },
+      {
+        "element": "S%",
+        "rv": "0.035 max."
+      },
+      {
+        "element": "UTS MPa",
+        "rv": "260.00-390.00"
+      },
+      {
+        "element": "EL %",
+        "rv": "32.00 min."
+      }
+    ]
+  }
+}
