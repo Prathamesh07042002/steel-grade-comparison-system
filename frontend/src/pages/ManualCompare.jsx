@@ -63,36 +63,33 @@ export default function ManualCompare() {
     reader.readAsDataURL(file);
   };
 
+  const handleStandardSelect = async (stdName) => {
+    setSelectedStandard(stdName);
 
-const handleStandardSelect = async (stdName) => {
-  setSelectedStandard(stdName);
+    setSelectedDesignation(null);
+    setStandardDetails(null);
 
-  setSelectedDesignation(null);
-  setStandardDetails(null);
+    // Clear previous comparison results
+    setTestData(null);
+    setChemResult(null);
+    setMechResult(null);
 
-  // Clear previous comparison results
-  setTestData(null);
-  setChemResult(null);
-  setMechResult(null);
+    setError(null);
 
-  setError(null);
+    try {
+      const res = await axios.get(`${API_BASE_URL}/standards/${stdName}`);
 
-  try {
-    const res = await axios.get(
-      `${API_BASE_URL}/standards/${stdName}`
-    );
+      const stdData = res.data.standard;
 
-    const stdData = res.data.standard;
+      setStandardDetails(stdData);
 
-    setStandardDetails(stdData);
+      const gradeKey = Object.keys(stdData)[0];
 
-    const gradeKey = Object.keys(stdData)[0];
-
-    setSelectedDesignation(gradeKey);
-  } catch (err) {
-    setError("Failed to load standard details");
-  }
-};
+      setSelectedDesignation(gradeKey);
+    } catch (err) {
+      setError("Failed to load standard details");
+    }
+  };
 
   const handleCompare = async () => {
     if (!uploadedFile || !selectedStandard || !selectedDesignation) {
@@ -142,10 +139,10 @@ const handleStandardSelect = async (stdName) => {
     <div className="max-w-7xl mx-auto space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-slate-800">
-          Manual Grade Comparison
+          🔬 Manual Grade Comparison
         </h1>
 
-        <p className="mt-3 text-slate-500">
+        <p className="mt-3 text-slate-500" style={{ marginBottom: "1.5rem" }}>
           Upload a Material Test Certificate, select a standard, and compare
           chemical and mechanical properties against the selected grade.
         </p>
@@ -157,30 +154,29 @@ const handleStandardSelect = async (stdName) => {
         </div>
       )}
 
-      <section className="bg-white border border-slate-200 rounded-3xl shadow-sm p-8">
-        <h2 className="text-lg font-semibold text-slate-800 mb-6">
-          Step 1 — Upload PDF
-        </h2>
-
+      {/* Upload Card */}
+      <section className="bg-white">
         <label className="block cursor-pointer">
           <div
             className="
-        border-2
-        border-dashed
-        border-slate-300
-        hover:border-blue-500
-        rounded-3xl
-        p-14
-        text-center
-        transition-all
-      "
+              border-2
+              border-dashed
+              border-slate-300
+              hover:border-blue-500
+              rounded-2xl
+              p-12
+              text-center
+              transition
+            "
           >
-            <h3 className="text-lg font-semibold text-slate-700">
-              Upload Material Test Certificate
+            <div className="text-5xl mb-4">📄</div>
+
+            <h3 className="font-semibold text-slate-700">
+              Click to Upload PDF
             </h3>
 
-            <p className="text-slate-500 mt-2">
-              Click here to select a PDF file
+            <p className="text-sm text-slate-500 mt-2">
+              Material Test Certificate (MTC)
             </p>
           </div>
 
@@ -193,16 +189,70 @@ const handleStandardSelect = async (stdName) => {
         </label>
 
         {uploadedFile && (
-          <div className="mt-5 bg-green-50 border border-green-200 text-green-700 rounded-xl p-4">
-            {uploadedFile.name}
+          <div
+            className="mt-6 border border-green-200 bg-green-50 rounded-lg p-4"
+            style={{ marginBottom: "1.5rem" }}
+          >
+            <div className="flex items-center justify-between">
+              {/* File Info */}
+              <div>
+                <p className="font-semibold text-slate-800">
+                  {uploadedFile.name}
+                </p>
+
+                <p className="text-sm text-slate-500 mt-1">
+                  {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-3">
+                <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium">
+                  Uploaded
+                </span>
+
+                <button
+                  onClick={() => setShowPdfPreview(!showPdfPreview)}
+                  className="
+                    bg-white
+                    border
+                    border-slate-300
+                    hover:border-blue-500
+                    hover:bg-blue-50
+                    px-4
+                    py-2
+                    rounded-xl
+                    text-sm
+                    font-medium
+                    transition-all
+                  "
+                >
+                  {showPdfPreview ? "Hide Preview" : "Preview PDF"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {pdfPreview && (
+          <div className="mt-5">
+            {showPdfPreview && (
+              <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden">
+                <iframe
+                  src={pdfPreview}
+                  title="PDF Preview"
+                  className="w-full h-[700px]"
+                />
+              </div>
+            )}
           </div>
         )}
       </section>
 
       {uploadedFile && standards.length > 0 && (
-        <section className="bg-white border border-slate-200 rounded-3xl shadow-sm p-8">
-          <h2 className="text-lg font-semibold text-slate-800 mb-6">
-            Step 2 — Select Standard
+        <section className="bg-white p-3">
+          <h2 className="text-xl font-semibold text-slate-800 mb-6" >
+            Select Standard
           </h2>
 
           <select
@@ -219,6 +269,7 @@ const handleStandardSelect = async (stdName) => {
         focus:ring-2
         focus:ring-blue-500
       "
+      style={{ marginBottom: "1rem" }}
           >
             <option value="">Select Standard</option>
 
@@ -232,85 +283,90 @@ const handleStandardSelect = async (stdName) => {
           {/* PUT THE PREVIEW BLOCK HERE */}
 
           {standardDetails && selectedDesignation && (
-  <>
-    <div className="mt-8">
+            <>
+              <div className="mt-8 space-y-6">
+                {/* Properties */}
+                <div className="grid lg:grid-cols-2 gap-6">
+                  {/* Chemical */}
+                  <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+                      <h4 className="font-semibold text-slate-800">
+                        Chemical Properties
+                      </h4>
 
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-xl font-semibold text-slate-800">
-          {selectedDesignation}
-        </h3>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Composition limits and requirements.
+                      </p>
+                    </div>
 
-        <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
-          Selected Grade
-        </span>
-      </div>
+                    <div className="p-6 max-h-[500px] overflow-y-auto">
+                      {renderStandardProperties(
+                        standardDetails[selectedDesignation]?.parameters,
+                        "chem",
+                      )}
+                    </div>
+                  </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
+                  {/* Mechanical */}
+                  <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+                      <h4 className="font-semibold text-slate-800">
+                        Mechanical Properties
+                      </h4>
 
-        <div className="border border-slate-200 rounded-2xl p-6">
-          <h4 className="font-semibold text-slate-800 mb-4">
-            Chemical Properties
-          </h4>
+                      <p className="text-sm text-slate-500 mt-1">
+                        Strength, hardness and performance requirements.
+                      </p>
+                    </div>
 
-          {renderStandardProperties(
-            standardDetails[selectedDesignation]?.parameters,
-            "chem"
+                    <div className="p-6 max-h-[500px] overflow-y-auto">
+                      {renderStandardProperties(
+                        standardDetails[selectedDesignation]?.parameters,
+                        "mech",
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                
+
+                {/* Action Area */}
+                <div className="bg-white  p-6">
+                  <div className="flex justify-center">
+                    
+
+                    <button
+                      onClick={handleCompare}
+                      disabled={loading}
+                      className="
+                      w-[95%]
+          bg-blue-600
+          hover:bg-blue-700
+          text-white
+          px-8
+          py-3
+          rounded-2xl
+          font-semibold
+          transition-all
+          shadow-sm
+          disabled:opacity-50
+          disabled:cursor-not-allowed
+        "
+                    >
+                      {loading ? "Running Comparison..." : "Compare Now"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
-        </div>
-
-        <div className="border border-slate-200 rounded-2xl p-6">
-          <h4 className="font-semibold text-slate-800 mb-4">
-            Mechanical Properties
-          </h4>
-
-          {renderStandardProperties(
-            standardDetails[selectedDesignation]?.parameters,
-            "mech"
-          )}
-        </div>
-
-      </div>
-
-      <div className="mt-6 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl p-4">
-        Review the selected standard and then run the comparison.
-      </div>
-
-      <div className="mt-6 flex justify-end">
-
-        <button
-          onClick={handleCompare}
-          disabled={loading}
-          className="
-            bg-blue-600
-            hover:bg-blue-700
-            text-white
-            px-6
-            py-3
-            rounded-xl
-            font-medium
-            transition
-            disabled:opacity-50
-            disabled:cursor-not-allowed
-          "
-        >
-          {loading
-            ? "Running Comparison..."
-            : "Compare Now"}
-        </button>
-
-      </div>
-
-    </div>
-  </>
-)}
         </section>
       )}
 
-      
-
       {testData && (
-        <section className="bg-white border border-slate-200 rounded-3xl shadow-sm p-8">
-          <h2 className="text-xl font-semibold text-slate-800 mb-6">
+        <section className="bg-white p-5">
+          <h2 className="text-2xl font-semibold text-slate-800 mb-6"
+          style={{ marginBottom: "0.5rem" }}>
             Extracted Values
           </h2>
 
@@ -369,7 +425,7 @@ const handleStandardSelect = async (stdName) => {
       )}
 
       {chem_result && mech_result && (
-        <section className="bg-white border border-slate-200 rounded-3xl shadow-sm p-8">
+        <section className="p-4">
           <ComparisonResults
             chem_result={chem_result}
             mech_result={mech_result}

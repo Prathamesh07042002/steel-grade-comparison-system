@@ -53,7 +53,7 @@ export default function ComparisonResults({
     <div className="space-y-8">
 
       {/* Header */}
-      <div>
+      <div style={{ marginBottom: "1rem" }}>
         <h2 className="text-2xl font-bold text-slate-800">
           Comparison Results
         </h2>
@@ -66,7 +66,7 @@ export default function ComparisonResults({
       </div>
 
       {/* Metadata */}
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-2 gap-4" style={{ marginBottom: "1.5rem" }}>
 
         <div className="border border-slate-200 rounded-xl p-4">
           <p className="text-sm text-slate-500">
@@ -99,6 +99,7 @@ export default function ComparisonResults({
           ${style.bg}
           ${style.border}
         `}
+        style={{ marginBottom: "0.5rem" }}
       >
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
 
@@ -160,7 +161,7 @@ export default function ComparisonResults({
       </div>
 
       {/* Detailed Results */}
-      <div className="border border-slate-200 rounded-3xl p-6">
+      <div className=" p-2">
         <ResultTabs
           chem_result={chem_result}
           mech_result={mech_result}

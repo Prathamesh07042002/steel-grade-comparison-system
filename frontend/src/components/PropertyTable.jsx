@@ -11,10 +11,7 @@ export default function PropertyTable({ result }) {
       {/* Matched Properties */}
       <div>
 
-        <h3 className="text-lg font-semibold text-slate-800 mb-4">
-          Matched Properties
-        </h3>
-
+      
         {Object.keys(matched).length > 0 ? (
 
           <div className="overflow-x-auto border border-slate-200 rounded-2xl">

@@ -45,10 +45,7 @@ export default function AutoMatch() {
       const formData = new FormData();
       formData.append("file", uploadedFile);
 
-      const res = await axios.post(
-        `${API_BASE_URL}/compare/auto`,
-        formData
-      );
+      const res = await axios.post(`${API_BASE_URL}/compare/auto`, formData);
 
       setAutoResult(res.data);
       setTestData(res.data.test_data);
@@ -61,17 +58,18 @@ export default function AutoMatch() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
-
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold text-slate-800">
+        <h1
+          className="text-3xl font-bold text-slate-800"
+          style={{ marginBottom: "0.4rem" }}
+        >
           🤖 Automatic Grade Matching
         </h1>
 
-        <p className="mt-2 text-slate-500">
-          Upload a material test certificate and
-          automatically find the closest matching
-          steel grade across all standards.
+        <p className="mt-2 text-slate-500" style={{ marginBottom: "1.5rem" }}>
+          Upload a material test certificate and automatically find the closest
+          matching steel grade across all standards.
         </p>
       </div>
 
@@ -83,14 +81,8 @@ export default function AutoMatch() {
       )}
 
       {/* Upload Card */}
-      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-
-        <h2 className="text-lg font-semibold text-slate-800 mb-5">
-          📄 Upload PDF
-        </h2>
-
+      <section className="bg-white">
         <label className="block cursor-pointer">
-
           <div
             className="
               border-2
@@ -103,9 +95,7 @@ export default function AutoMatch() {
               transition
             "
           >
-            <div className="text-5xl mb-4">
-              📄
-            </div>
+            <div className="text-5xl mb-4">📄</div>
 
             <h3 className="font-semibold text-slate-700">
               Click to Upload PDF
@@ -125,39 +115,60 @@ export default function AutoMatch() {
         </label>
 
         {uploadedFile && (
-          <div className="mt-5 bg-green-50 border border-green-200 text-green-700 rounded-xl p-3">
-            ✅ {uploadedFile.name}
+          <div
+            className="mt-6 border border-green-200 bg-green-50 rounded-lg p-4"
+            style={{ marginBottom: "1.5rem" }}
+          >
+            <div className="flex items-center justify-between">
+              {/* File Info */}
+              <div>
+                <p className="font-semibold text-slate-800">
+                  {uploadedFile.name}
+                </p>
+
+                <p className="text-sm text-slate-500 mt-1">
+                  {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-3">
+                <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium">
+                  Uploaded
+                </span>
+
+                <button
+                  onClick={() => setShowPdfPreview(!showPdfPreview)}
+                  className="
+                    bg-white
+                    border
+                    border-slate-300
+                    hover:border-blue-500
+                    hover:bg-blue-50
+                    px-4
+                    py-2
+                    rounded-xl
+                    text-sm
+                    font-medium
+                    transition-all
+                  "
+                >
+                  {showPdfPreview ? "Hide Preview" : "Preview PDF"}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
         {pdfPreview && (
           <div className="mt-5">
-
-            <button
-              onClick={() =>
-                setShowPdfPreview(!showPdfPreview)
-              }
-              className="
-                bg-slate-100
-                hover:bg-slate-200
-                px-4
-                py-2
-                rounded-lg
-                transition
-              "
-            >
-              👁️ {showPdfPreview ? "Hide" : "Preview"} PDF
-            </button>
-
             {showPdfPreview && (
               <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden">
-
                 <iframe
                   src={pdfPreview}
                   title="PDF Preview"
                   className="w-full h-[700px]"
                 />
-
               </div>
             )}
           </div>
@@ -166,140 +177,165 @@ export default function AutoMatch() {
 
       {/* Run Auto Match */}
       {uploadedFile && (
-        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-
-          <h2 className="text-lg font-semibold text-slate-800 mb-4">
-            ⚡ Run Analysis
-          </h2>
-
-          <button
-            onClick={handleAutoMatch}
-            disabled={loading}
-            className="
+        <section className="flex justify-center"
+        style={{ marginBottom: "2rem" }}>
+            <button
+              onClick={handleAutoMatch}
+              disabled={loading}
+              className="
+               w-[95%]
               bg-blue-600
               hover:bg-blue-700
               disabled:opacity-50
               disabled:cursor-not-allowed
               text-white
-              px-6
+              px-8
               py-3
-              rounded-xl
-              font-medium
-              transition
-            "
-          >
-            {loading
-              ? "⏳ Finding Best Match..."
-              : "🚀 Find Best Match"}
-          </button>
-
+              rounded-2xl
+              font-semibold
+              shadow-sm
+              transition-all
+        "
+            >
+              {loading ? "Analyzing..." : "Run Analysis"}
+            </button>
+        
         </section>
       )}
 
       {/* Extracted Properties */}
       {testData && (
-        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+        <section >
+          <div className="flex items-center justify-between"
+            style={{ margin: "0.5rem" }}>
+            <div>
+              <h2 className="text-2xl font-semibold text-slate-800">
+                Extracted Properties
+              </h2>
 
-          <h2 className="text-xl font-semibold text-slate-800 mb-6">
-            📋 Extracted Properties
-          </h2>
+              <p className="text-slate-500 mt-1">
+                Properties extracted from the uploaded certificate.
+              </p>
+            </div>
+          </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
+          {/* Stats */}
+          <div className="grid md:grid-cols-3 gap-5 mb-8"
+          style={{ margin: "0.5rem" }}>
+            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5">
+              <p className="text-sm text-slate-500">Chemical Properties</p>
 
+              <h3 className="text-3xl font-bold text-blue-600 mt-2">
+                {Object.keys(testData.chemical_properties || {}).length}
+              </h3>
+            </div>
+
+            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5">
+              <p className="text-sm text-slate-500">Mechanical Properties</p>
+
+              <h3 className="text-3xl font-bold text-emerald-600 mt-2">
+                {Object.keys(testData.mechanical_properties || {}).length}
+              </h3>
+            </div>
+
+            <div className="bg-violet-50 border border-violet-100 rounded-2xl p-5">
+              <p className="text-sm text-slate-500">Total Properties</p>
+
+              <h3 className="text-3xl font-bold text-violet-600 mt-2">
+                {Object.keys(testData.chemical_properties || {}).length +
+                  Object.keys(testData.mechanical_properties || {}).length}
+              </h3>
+            </div>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-6">
             {/* Chemical */}
-            <div className="border border-slate-200 rounded-xl p-5">
-
-              <h3 className="font-semibold text-slate-800 mb-4">
-                🧪 Chemical Properties
+            <div className="border border-slate-200 rounded-3xl p-6">
+              <h3 className="text-lg font-semibold text-slate-800 mb-5">
+                Chemical Properties
               </h3>
 
-              {Object.entries(
-                testData.chemical_properties || {}
-              ).length > 0 ? (
-                Object.entries(
-                  testData.chemical_properties
-                ).map(([key, val]) => (
-                  <div
-                    key={key}
-                    className="
-                      flex
-                      justify-between
-                      items-center
-                      py-2
-                      border-b
-                      border-slate-100
-                    "
-                  >
-                    <span className="text-slate-700">
-                      {key}
-                    </span>
+              <div className="max-h-[450px] overflow-y-auto">
+                {Object.entries(testData.chemical_properties || {}).length >
+                0 ? (
+                  Object.entries(testData.chemical_properties).map(
+                    ([key, val]) => (
+                      <div
+                        key={key}
+                        className="
+                  flex
+                  justify-between
+                  items-center
+                  py-3
+                  border-b
+                  border-slate-100
+                "
+                      >
+                        <span className="text-slate-700 font-medium">
+                          {key}
+                        </span>
 
-                    <code className="bg-slate-100 px-2 py-1 rounded">
-                      {val}
-                    </code>
-                  </div>
-                ))
-              ) : (
-                <p className="text-slate-400">
-                  No chemical properties found
-                </p>
-              )}
+                        <code className="bg-slate-100 px-3 py-1.5 rounded-lg text-sm">
+                          {val}
+                        </code>
+                      </div>
+                    ),
+                  )
+                ) : (
+                  <p className="text-slate-400">No chemical properties found</p>
+                )}
+              </div>
             </div>
 
             {/* Mechanical */}
-            <div className="border border-slate-200 rounded-xl p-5">
-
-              <h3 className="font-semibold text-slate-800 mb-4">
-                ⚙️ Mechanical Properties
+            <div className="border border-slate-200 rounded-3xl p-6">
+              <h3 className="text-lg font-semibold text-slate-800 mb-5">
+                Mechanical Properties
               </h3>
 
-              {Object.entries(
-                testData.mechanical_properties || {}
-              ).length > 0 ? (
-                Object.entries(
-                  testData.mechanical_properties
-                ).map(([key, val]) => (
-                  <div
-                    key={key}
-                    className="
-                      flex
-                      justify-between
-                      items-center
-                      py-2
-                      border-b
-                      border-slate-100
-                    "
-                  >
-                    <span className="text-slate-700">
-                      {key}
-                    </span>
+              <div className="max-h-[450px] overflow-y-auto">
+                {Object.entries(testData.mechanical_properties || {}).length >
+                0 ? (
+                  Object.entries(testData.mechanical_properties).map(
+                    ([key, val]) => (
+                      <div
+                        key={key}
+                        className="
+                  flex
+                  justify-between
+                  items-center
+                  py-3
+                  border-b
+                  border-slate-100
+                "
+                      >
+                        <span className="text-slate-700 font-medium">
+                          {key}
+                        </span>
 
-                    <code className="bg-slate-100 px-2 py-1 rounded">
-                      {val}
-                    </code>
-                  </div>
-                ))
-              ) : (
-                <p className="text-slate-400">
-                  No mechanical properties found
-                </p>
-              )}
+                        <code className="bg-slate-100 px-3 py-1.5 rounded-lg text-sm">
+                          {val}
+                        </code>
+                      </div>
+                    ),
+                  )
+                ) : (
+                  <p className="text-slate-400">
+                    No mechanical properties found
+                  </p>
+                )}
+              </div>
             </div>
-
           </div>
         </section>
       )}
 
       {/* Results */}
       {autoResult && (
-        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-          <AutoMatchResults
-            result={autoResult}
-            testData={testData}
-          />
+        <section className="bg-white py-6">
+          <AutoMatchResults result={autoResult} testData={testData} />
         </section>
       )}
-
     </div>
   );
 }

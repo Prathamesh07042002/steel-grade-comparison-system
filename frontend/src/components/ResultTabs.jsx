@@ -12,7 +12,8 @@ export default function ResultTabs({
     <div>
 
       {/* Tabs */}
-      <div className="flex items-center bg-slate-100 p-1 rounded-xl w-fit mb-6">
+      <div className="flex items-center bg-slate-100 p-1 rounded-xl w-fit mb-6"
+      style={{ marginBottom: "0.5rem" }}>
 
         <button
           onClick={() =>
@@ -59,7 +60,7 @@ export default function ResultTabs({
       </div>
 
       {/* Content */}
-      <div className="border border-slate-200 rounded-2xl overflow-hidden">
+      <div >
 
         {activeTab === "chem" && (
           <PropertyTable
