@@ -18,39 +18,155 @@ export default function ComparisonResults({
     mech_result
   );
 
+  const verdictStyles = {
+    excellent: {
+      bg: "bg-green-50",
+      border: "border-green-200",
+      text: "text-green-700",
+      progress: "bg-green-500",
+    },
+    good: {
+      bg: "bg-blue-50",
+      border: "border-blue-200",
+      text: "text-blue-700",
+      progress: "bg-blue-500",
+    },
+    warning: {
+      bg: "bg-yellow-50",
+      border: "border-yellow-200",
+      text: "text-yellow-700",
+      progress: "bg-yellow-500",
+    },
+    fail: {
+      bg: "bg-red-50",
+      border: "border-red-200",
+      text: "text-red-700",
+      progress: "bg-red-500",
+    },
+  };
+
+  const style =
+    verdictStyles[verdictClass] ||
+    verdictStyles.good;
+
   return (
-    <section className="results">
-      <h2>📊 Comparison Results</h2>
+    <div className="space-y-8">
 
-      <p>
-        <strong>Test:</strong> {testFilename}
-        {" | "}
-        <strong>Standard:</strong> {standardName}
-      </p>
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl font-bold text-slate-800">
+          Comparison Results
+        </h2>
 
-      <div className={`verdict-card ${verdictClass}`}>
-        <h3>{verdict}</h3>
-
-        <p>{passPercent}% Passed</p>
-
-        <div className="progress-bar">
-          <div
-            className="progress-fill"
-            style={{
-              width: `${passPercent}%`,
-            }}
-          />
-        </div>
-
-        <p>
-          {passCount} of {total} properties passed
+        <p className="text-slate-500 mt-2">
+          Property-by-property comparison
+          between the uploaded test report
+          and the selected standard.
         </p>
       </div>
 
-      <ResultTabs
-        chem_result={chem_result}
-        mech_result={mech_result}
-      />
-    </section>
+      {/* Metadata */}
+      <div className="grid md:grid-cols-2 gap-4">
+
+        <div className="border border-slate-200 rounded-xl p-4">
+          <p className="text-sm text-slate-500">
+            Test File
+          </p>
+
+          <p className="font-medium text-slate-800 mt-1">
+            {testFilename}
+          </p>
+        </div>
+
+        <div className="border border-slate-200 rounded-xl p-4">
+          <p className="text-sm text-slate-500">
+            Selected Standard
+          </p>
+
+          <p className="font-medium text-slate-800 mt-1">
+            {standardName}
+          </p>
+        </div>
+
+      </div>
+
+      {/* Verdict Card */}
+      <div
+        className={`
+          rounded-3xl
+          border
+          p-8
+          ${style.bg}
+          ${style.border}
+        `}
+      >
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+
+          <div>
+            <h3
+              className={`
+                text-3xl
+                font-bold
+                ${style.text}
+              `}
+            >
+              {verdict}
+            </h3>
+
+            <p className="text-slate-600 mt-2">
+              {passCount} of {total} properties passed
+            </p>
+          </div>
+
+          <div className="text-center lg:text-right">
+            <div
+              className={`
+                text-4xl
+                font-bold
+                ${style.text}
+              `}
+            >
+              {passPercent}%
+            </div>
+
+            <p className="text-slate-500">
+              Match Score
+            </p>
+          </div>
+
+        </div>
+
+        {/* Progress */}
+        <div className="mt-6">
+
+          <div className="w-full bg-white rounded-full h-4 overflow-hidden">
+
+            <div
+              className={`
+                h-full
+                transition-all
+                duration-700
+                ${style.progress}
+              `}
+              style={{
+                width: `${passPercent}%`,
+              }}
+            />
+
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* Detailed Results */}
+      <div className="border border-slate-200 rounded-3xl p-6">
+        <ResultTabs
+          chem_result={chem_result}
+          mech_result={mech_result}
+        />
+      </div>
+
+    </div>
   );
 }

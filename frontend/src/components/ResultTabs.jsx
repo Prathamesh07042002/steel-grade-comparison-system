@@ -10,37 +10,71 @@ export default function ResultTabs({
 
   return (
     <div>
-      <div className="flex gap-2 mb-4">
+
+      {/* Tabs */}
+      <div className="flex items-center bg-slate-100 p-1 rounded-xl w-fit mb-6">
 
         <button
           onClick={() =>
             setActiveTab("chem")
           }
+          className={`
+            px-5
+            py-2.5
+            rounded-lg
+            font-medium
+            transition-all
+            duration-200
+            ${
+              activeTab === "chem"
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-slate-600 hover:text-slate-800"
+            }
+          `}
         >
-          Chemical
+          Chemical Properties
         </button>
 
         <button
           onClick={() =>
             setActiveTab("mech")
           }
+          className={`
+            px-5
+            py-2.5
+            rounded-lg
+            font-medium
+            transition-all
+            duration-200
+            ${
+              activeTab === "mech"
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-slate-600 hover:text-slate-800"
+            }
+          `}
         >
-          Mechanical
+          Mechanical Properties
         </button>
 
       </div>
 
-      {activeTab === "chem" && (
-        <PropertyTable
-          result={chem_result}
-        />
-      )}
+      {/* Content */}
+      <div className="border border-slate-200 rounded-2xl overflow-hidden">
 
-      {activeTab === "mech" && (
-        <PropertyTable
-          result={mech_result}
-        />
-      )}
+        {activeTab === "chem" && (
+          <PropertyTable
+            result={chem_result}
+          />
+        )}
+
+        {activeTab === "mech" && (
+          <PropertyTable
+            result={mech_result}
+          />
+        )}
+
+      </div>
+
     </div>
   );
 }

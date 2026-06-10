@@ -63,25 +63,36 @@ export default function ManualCompare() {
     reader.readAsDataURL(file);
   };
 
-  const handleStandardSelect = async (stdName) => {
-    setSelectedStandard(stdName);
-    setSelectedDesignation(null);
-    setStandardDetails(null);
 
-    try {
-      const res = await axios.get(`${API_BASE_URL}/standards/${stdName}`);
+const handleStandardSelect = async (stdName) => {
+  setSelectedStandard(stdName);
 
-      const stdData = res.data.standard;
+  setSelectedDesignation(null);
+  setStandardDetails(null);
 
-      setStandardDetails(stdData);
+  // Clear previous comparison results
+  setTestData(null);
+  setChemResult(null);
+  setMechResult(null);
 
-      const gradeKey = Object.keys(stdData)[0];
+  setError(null);
 
-      setSelectedDesignation(gradeKey);
-    } catch (err) {
-      setError("Failed to load standard details");
-    }
-  };
+  try {
+    const res = await axios.get(
+      `${API_BASE_URL}/standards/${stdName}`
+    );
+
+    const stdData = res.data.standard;
+
+    setStandardDetails(stdData);
+
+    const gradeKey = Object.keys(stdData)[0];
+
+    setSelectedDesignation(gradeKey);
+  } catch (err) {
+    setError("Failed to load standard details");
+  }
+};
 
   const handleCompare = async () => {
     if (!uploadedFile || !selectedStandard || !selectedDesignation) {
@@ -128,56 +139,88 @@ export default function ManualCompare() {
   };
 
   return (
-    <div className="pipeline">
-      <h2>🔬 Pipeline 1 — Manual Comparison</h2>
+    <div className="max-w-7xl mx-auto space-y-8">
+      <div>
+        <h1 className="text-3xl font-bold text-slate-800">
+          Manual Grade Comparison
+        </h1>
 
-      <p>
-        Upload a test / mill-certificate PDF → choose the standard to compare →
-        get a property-by-property pass / fail report
-      </p>
+        <p className="mt-3 text-slate-500">
+          Upload a Material Test Certificate, select a standard, and compare
+          chemical and mechanical properties against the selected grade.
+        </p>
+      </div>
 
-      {error && <div className="error-box">{error}</div>}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3">
+          {error}
+        </div>
+      )}
 
-      <section className="step">
-        <h3>📄 Step 1 — Upload test PDF</h3>
+      <section className="bg-white border border-slate-200 rounded-3xl shadow-sm p-8">
+        <h2 className="text-lg font-semibold text-slate-800 mb-6">
+          Step 1 — Upload PDF
+        </h2>
 
-        <input
-          type="file"
-          accept=".pdf"
-          onChange={handleFileUpload}
-          className="file-input"
-        />
+        <label className="block cursor-pointer">
+          <div
+            className="
+        border-2
+        border-dashed
+        border-slate-300
+        hover:border-blue-500
+        rounded-3xl
+        p-14
+        text-center
+        transition-all
+      "
+          >
+            <h3 className="text-lg font-semibold text-slate-700">
+              Upload Material Test Certificate
+            </h3>
 
-        {uploadedFile && <p className="success">✅ {uploadedFile.name}</p>}
+            <p className="text-slate-500 mt-2">
+              Click here to select a PDF file
+            </p>
+          </div>
 
-        {pdfPreview && (
-          <>
-            <button
-              onClick={() => setShowPdfPreview(!showPdfPreview)}
-              className="btn-secondary"
-            >
-              👁️ {showPdfPreview ? "Hide" : "Preview"} PDF
-            </button>
+          <input
+            type="file"
+            accept=".pdf"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+        </label>
 
-            {showPdfPreview && (
-              <div className="pdf-preview">
-                <iframe src={pdfPreview} type="application/pdf" />
-              </div>
-            )}
-          </>
+        {uploadedFile && (
+          <div className="mt-5 bg-green-50 border border-green-200 text-green-700 rounded-xl p-4">
+            {uploadedFile.name}
+          </div>
         )}
       </section>
 
       {uploadedFile && standards.length > 0 && (
-        <section className="step">
-          <h3>🎯 Step 2 — Choose standard</h3>
+        <section className="bg-white border border-slate-200 rounded-3xl shadow-sm p-8">
+          <h2 className="text-lg font-semibold text-slate-800 mb-6">
+            Step 2 — Select Standard
+          </h2>
 
           <select
             value={selectedStandard}
             onChange={(e) => handleStandardSelect(e.target.value)}
-            className="select-input"
+            className="
+        w-full
+        border
+        border-slate-300
+        rounded-xl
+        px-4
+        py-3
+        focus:outline-none
+        focus:ring-2
+        focus:ring-blue-500
+      "
           >
-            <option value="">-- Select a standard --</option>
+            <option value="">Select Standard</option>
 
             {standards.map((std) => (
               <option key={std.name} value={std.name}>
@@ -186,86 +229,139 @@ export default function ManualCompare() {
             ))}
           </select>
 
+          {/* PUT THE PREVIEW BLOCK HERE */}
+
           {standardDetails && selectedDesignation && (
-            <div className="standard-preview">
-              <h4>
-                📋 Preview:
-                {selectedDesignation}
-              </h4>
+  <>
+    <div className="mt-8">
 
-              <div className="properties-grid">
-                <div className="property-column">
-                  <h5>🧪 Chemical</h5>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xl font-semibold text-slate-800">
+          {selectedDesignation}
+        </h3>
 
-                  {renderStandardProperties(
-                    standardDetails[selectedDesignation]?.parameters,
-                    "chem",
-                  )}
-                </div>
+        <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
+          Selected Grade
+        </span>
+      </div>
 
-                <div className="property-column">
-                  <h5>⚙️ Mechanical</h5>
+      <div className="grid lg:grid-cols-2 gap-6">
 
-                  {renderStandardProperties(
-                    standardDetails[selectedDesignation]?.parameters,
-                    "mech",
-                  )}
-                </div>
-              </div>
-            </div>
+        <div className="border border-slate-200 rounded-2xl p-6">
+          <h4 className="font-semibold text-slate-800 mb-4">
+            Chemical Properties
+          </h4>
+
+          {renderStandardProperties(
+            standardDetails[selectedDesignation]?.parameters,
+            "chem"
           )}
+        </div>
+
+        <div className="border border-slate-200 rounded-2xl p-6">
+          <h4 className="font-semibold text-slate-800 mb-4">
+            Mechanical Properties
+          </h4>
+
+          {renderStandardProperties(
+            standardDetails[selectedDesignation]?.parameters,
+            "mech"
+          )}
+        </div>
+
+      </div>
+
+      <div className="mt-6 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl p-4">
+        Review the selected standard and then run the comparison.
+      </div>
+
+      <div className="mt-6 flex justify-end">
+
+        <button
+          onClick={handleCompare}
+          disabled={loading}
+          className="
+            bg-blue-600
+            hover:bg-blue-700
+            text-white
+            px-6
+            py-3
+            rounded-xl
+            font-medium
+            transition
+            disabled:opacity-50
+            disabled:cursor-not-allowed
+          "
+        >
+          {loading
+            ? "Running Comparison..."
+            : "Compare Now"}
+        </button>
+
+      </div>
+
+    </div>
+  </>
+)}
         </section>
       )}
 
-      {uploadedFile && selectedDesignation && (
-        <section className="step">
-          <h3>⚡ Step 3 — Run comparison</h3>
-
-          <button
-            onClick={handleCompare}
-            disabled={loading}
-            className="btn-primary"
-          >
-            {loading ? "⏳ Running..." : "▶ Compare Now"}
-          </button>
-        </section>
-      )}
+      
 
       {testData && (
-        <section className="extracted-values">
-          <h3>📋 Extracted Values from PDF</h3>
+        <section className="bg-white border border-slate-200 rounded-3xl shadow-sm p-8">
+          <h2 className="text-xl font-semibold text-slate-800 mb-6">
+            Extracted Values
+          </h2>
 
-          <div className="properties-grid">
-            <div className="property-column">
-              <h4>🧪 Chemical Properties</h4>
+          <div className="grid lg:grid-cols-2 gap-6">
+            <div className="border border-slate-200 rounded-2xl p-6">
+              <h3 className="font-semibold mb-4">Chemical Properties</h3>
 
-              {Object.entries(testData.chemical_properties || {}).length > 0 ? (
-                Object.entries(testData.chemical_properties).map(
-                  ([key, val]) => (
-                    <div key={key} className="property-item">
-                      <strong>{key}:</strong> <code>{val}</code>
-                    </div>
-                  ),
-                )
-              ) : (
-                <p className="no-data">No chemical properties found</p>
+              {Object.entries(testData.chemical_properties || {}).map(
+                ([key, val]) => (
+                  <div
+                    key={key}
+                    className="
+            flex
+            justify-between
+            py-3
+            border-b
+            border-slate-100
+          "
+                  >
+                    <span>{key}</span>
+
+                    <code className="bg-slate-100 px-3 py-1 rounded">
+                      {val}
+                    </code>
+                  </div>
+                ),
               )}
             </div>
 
-            <div className="property-column">
-              <h4>⚙️ Mechanical Properties</h4>
+            <div className="border border-slate-200 rounded-2xl p-6">
+              <h3 className="font-semibold mb-4">Mechanical Properties</h3>
 
-              {Object.entries(testData.mechanical_properties || {}).length >
-              0 ? (
-                Object.entries(testData.mechanical_properties).map(
-                  ([key, val]) => (
-                    <div key={key} className="property-item">
-                      <strong>{key}:</strong> <code>{val}</code>
-                    </div>
-                  ),
-                )
-              ) : (
-                <p className="no-data">No mechanical properties found</p>
+              {Object.entries(testData.mechanical_properties || {}).map(
+                ([key, val]) => (
+                  <div
+                    key={key}
+                    className="
+            flex
+            justify-between
+            py-3
+            border-b
+            border-slate-100
+          "
+                  >
+                    <span>{key}</span>
+
+                    <code className="bg-slate-100 px-3 py-1 rounded">
+                      {val}
+                    </code>
+                  </div>
+                ),
               )}
             </div>
           </div>
@@ -273,12 +369,14 @@ export default function ManualCompare() {
       )}
 
       {chem_result && mech_result && (
-        <ComparisonResults
-          chem_result={chem_result}
-          mech_result={mech_result}
-          testFilename={uploadedFile?.name}
-          standardName={selectedDesignation}
-        />
+        <section className="bg-white border border-slate-200 rounded-3xl shadow-sm p-8">
+          <ComparisonResults
+            chem_result={chem_result}
+            mech_result={mech_result}
+            testFilename={uploadedFile?.name}
+            standardName={selectedDesignation}
+          />
+        </section>
       )}
     </div>
   );

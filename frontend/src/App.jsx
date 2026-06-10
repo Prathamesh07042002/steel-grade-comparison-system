@@ -83,7 +83,7 @@ export default function App() {
       <main className="flex-1 p-8 overflow-auto">
 
         {/* Page Header */}
-        <div className="mb-8">
+        {/* <div className="mb-8">
           <h2 className="text-3xl font-bold text-slate-800">
             {activePage === "manual"
               ? "Manual Comparison"
@@ -94,10 +94,10 @@ export default function App() {
             Analyze and compare steel grades
             across standards.
           </p>
-        </div>
+        </div> */}
 
         {/* Content Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+        <div className="bg-white rounded-3xl shadow-lg border border-slate-200 p-8">
 
           {activePage === "manual" && (
             <ManualCompare />
