@@ -95,6 +95,7 @@ The API will be available at:
 ```bash
 cd frontend
 npm run dev
+npx @tailwindcss/cli -i ./src/input.css -o ./src/output.css --watch
 ```
 
 The frontend will be available at: http://localhost:3000
