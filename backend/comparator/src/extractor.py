@@ -1,62 +1,70 @@
 """
-extractor.py — LLM-based structured data extractor
-Converts raw OCR text into structured JSON for:
-  1. Standard specification sheets  → extract_standards_json()
-  2. Test / mill-certificate PDFs   → extract_test_json()
+extractor.py — structured data extraction for steel spec/test PDFs.
+Uses ocr.py's extract_document_annotation: rotation-corrected image ->
+single Mistral call -> schema-validated structured JSON.
+
+Public function names/return shapes match the original extractor.py so
+downstream code doesn't need to change — only the input changed
+(pdf_path instead of pre-OCR'd text, since OCR now happens inside the
+same call).
 """
 
-import json
-import os
-import re
-import time
-import requests
-from dotenv import load_dotenv
+from typing import List
 
-load_dotenv()
-API_KEY = os.getenv("MISTRAL_API_KEY")
+from pydantic import BaseModel, Field
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+from .ocr import extract_document_annotation
 
-def _call_mistral(payload: dict, max_retries: int = 5) -> str:
-    """POST to Mistral chat completions with exponential back-off on 429."""
-    for attempt in range(1, max_retries + 1):
-        response = requests.post(
-            "https://api.mistral.ai/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {API_KEY}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=120,
-        )
-        if response.status_code == 200:
-            return response.json()["choices"][0]["message"]["content"].strip()
-        if response.status_code == 429:
-            wait = attempt * 30
-            print(f"  ⚠️  Rate limit — waiting {wait}s (attempt {attempt}/{max_retries})…")
-            time.sleep(wait)
-            continue
-        raise Exception(f"Chat API Error {response.status_code}: {response.text}")
-    raise Exception("Max retries reached — Mistral rate limit not cleared.")
+# ── Shared building blocks ───────────────────────────────────────────────────
+
+class Parameter(BaseModel):
+    element: str = Field(
+        ...,
+        description=(
+            "The exact parameter/element name as printed in the table, e.g. 'C%', 'Mn%', 'Si%', "
+            "'P%', 'S%', 'Al%', 'Nb%', 'V%', 'Ti%', 'CE', 'N ppm', 'YS MPa', 'UTS MPa', 'EL %', 'BH'. "
+            "Copy exactly as printed, do not rename or normalize."
+        ),
+    )
+    rv: str = Field(
+        ...,
+        description=(
+            "The single R/V (requirement value) exactly as printed, digit for digit — "
+            "e.g. '0.10 max', '330-490', '27 min'. Do NOT round, reformat, or shift decimals."
+        ),
+    )
 
 
-def _clean_json(raw: str) -> str:
-    """Strip ```json … ``` fences if present."""
-    if raw.startswith("```"):
-        parts = raw.split("```")
-        raw = parts[1]
-        if raw.startswith("json"):
-            raw = raw[4:]
-    return raw.strip()
+class PropertyValue(BaseModel):
+    name: str = Field(
+        ...,
+        description=(
+            "The exact property/element name as printed, e.g. 'C%', 'Mn%', 'YS MPa'. "
+            "Copy exactly as shown, do not rename or normalize."
+        ),
+    )
+    value: str = Field(
+        ...,
+        description=(
+            "The actual MEASURED test value exactly as printed — a measured result, not a "
+            "specification limit. Copy verbatim, digit for digit — do not round or shift decimals."
+        ),
+    )
 
 
 # ── Pipeline 1: Standard spec sheet extractor ────────────────────────────────
 
-def extract_standards_json(text: str, grade_name: str = "UNKNOWN") -> dict:
+class StandardsSheet(BaseModel):
+    parameters: List[Parameter] = Field(
+        ..., description="Every chemical/mechanical parameter row in the table(s). Do not skip any row."
+    )
+
+
+def extract_standards_json(pdf_path: str, grade_name: str = "UNKNOWN") -> dict:
     """
     Extract chemical + mechanical parameters from a standards spec PDF.
 
-    Returns a dict shaped like:
+    Returns:
     {
       "<grade_name>": {
         "parameters": [
@@ -67,162 +75,122 @@ def extract_standards_json(text: str, grade_name: str = "UNKNOWN") -> dict:
       }
     }
     """
-    if not text.strip():
-        raise ValueError("OCR text is empty.")
+    prompt = f"""This document is a STANDARDS specification sheet for steel grade "{grade_name}".
+Extract every element/parameter row from the table(s): chemical (C%, Mn%, Si%, P%, S%, Al%, Nb%, V%,
+Ti%, CE, N ppm, ...) and mechanical (YS MPa, UTS MPa, EL %, BH, ...).
 
-    prompt = f"""
-You are an expert at reading industrial steel standards documents.
-
-This document is a STANDARDS specification sheet for steel grade: "{grade_name}"
-
-Extract ALL elements / parameters from the table(s) in this document.
-
-For each element or parameter extract:
-- "element": the parameter name (e.g. "C%", "Mn%", "Si%", "P%", "S%", "Al%",
-  "Nb%", "V%", "Ti%", "CE", "N ppm", "YS MPa", "UTS MPa", "EL %", "BH", etc.)
-- "rv": the single R/V value exactly as it appears (e.g. "0.10 max", "330-490", "27 min")
-
-Return a JSON object in this EXACT format:
-{{
-  "{grade_name}": {{
-    "parameters": [
-      {{ "element": "C%",     "rv": "0.10 max"  }},
-      {{ "element": "Mn%",    "rv": "0.40-0.80" }},
-      {{ "element": "YS MPa", "rv": "330-410"   }},
-      {{ "element": "UTS MPa","rv": "390-490"   }},
-      {{ "element": "EL %",   "rv": "27 min"    }}
-    ]
-  }}
-}}
-
-RULES:
-- Extract EVERY SINGLE row — do not skip any element
-- "rv" is one value per element, exactly as shown
-- Return STRICT JSON ONLY. No explanation. No markdown. No code fences.
-
-TEXT:
-{text}
-"""
+STRICT RULES:
+- Extract EVERY row — do not skip any, do not summarize or merge rows.
+- "rv" must be copied exactly as printed — no rounding, no reformatting, no decimal shifting."""
 
     print(f"  🤖 Extracting standards parameters for grade: {grade_name}…")
-    content = _clean_json(_call_mistral({
-        "model": "mistral-large-latest",
-        "messages": [{"role": "user", "content": prompt}],
-    }))
+    result = extract_document_annotation(pdf_path, StandardsSheet, document_annotation_prompt=prompt)
 
-    try:
-        return json.loads(content)
-    except json.JSONDecodeError as e:
-        print(f"  ⚠️  JSON parse failed: {e}")
-        return {grade_name: {"parameters": [], "parse_error": str(e)}}
+    return {grade_name: {"parameters": [p.model_dump() for p in result.parameters]}}
 
 
 # ── Pipeline 2: Test / mill-certificate extractor ────────────────────────────
 
-def extract_test_json(text: str, pdf_name: str = "") -> dict:
+class TestCertificate(BaseModel):
+    grade: str = Field(default="", description="Grade / product name")
+    supply_spec: str = Field(default="", description="Supply spec, e.g. TS4012, IS2062")
+    drawing_designation: str = Field(default="", description="Drawing designation, e.g. CR3")
+    steel_grade_form: str = Field(default="", description="e.g. Cold Rolled, Hot Rolled, Galvanised")
+    section_txw: List[str] = Field(
+        default_factory=list,
+        description="Every 'Section(TxW)' value found in the document, e.g. ['0.960x1250.000mm']. Empty list if none found.",
+    )
+    chemical_properties: List[PropertyValue] = Field(
+        default_factory=list, description="Actual measured chemical test values (C%, Mn%, Si%, P%, S%, Al%, ...)"
+    )
+    mechanical_properties: List[PropertyValue] = Field(
+        default_factory=list, description="Actual measured mechanical test values (YS MPa, UTS MPa, EL %, BH, ...)"
+    )
+
+
+def extract_test_json(pdf_path: str, pdf_name: str = "") -> dict:
     """
     Extract ACTUAL measured values from a mill certificate / test report PDF.
 
-    Returns a dict shaped like:
+    Returns:
     {
       "grade":                 "CR3",
       "supply_spec":           "TS4012",
       "drawing_designation":   "CR3",
       "steel_grade_form":      "Cold Rolled",
-      "chemical_properties":   {"C%": "0.06", "Mn%": "0.35", ...},
-      "mechanical_properties": {"YS MPa": "320", "UTS MPa": "420", "EL %": "38"}
+      "section_txw":           ["0.960x1250.000mm"],
+      "chemical_properties":   {"C%": "0.0350", "Mn%": "0.202", ...},
+      "mechanical_properties": {"YS MPa": "194", "UTS MPa": "301", "EL %": "38"}
     }
     """
-    if not text.strip():
-        raise ValueError("OCR text is empty.")
+    prompt = f"""This document is a TEST / MILL CERTIFICATE PDF: "{pdf_name}"
 
-    prompt = f"""
-You are an expert at reading steel mill certificates and test reports.
+Mill certificates commonly show TWO different sets of numbers per element: (a) the specification/
+limit rows (labeled "Min"/"Max"/"Specification Requirements"), and (b) the ACTUAL MEASURED result
+(rows labeled "Test Results", tied to a specific batch/coil/heat). Extract ONLY set (b) — ignore the
+Min/Max/specification rows entirely, even though they list the same element/column names.
 
-This document is a TEST / MILL CERTIFICATE PDF: "{pdf_name}"
+Extract: grade, supply spec, drawing designation, steel grade form, every "Section(TxW)" value found
+(as a list), and the actual TEST RESULT chemical and mechanical property values.
 
-Extract the ACTUAL MEASURED values (not specification limits) for:
-1. Grade / product name
-2. Supply spec (e.g. TS4012, IS2062, etc.)
-3. Drawing designation
-4. Steel grade form (e.g. Cold Rolled, Hot Rolled, Galvanised, etc.)
-5. Chemical properties (actual test values, e.g. C%, Mn%, Si%, P%, S%, Al%, etc.)
-6. Mechanical properties (actual test values, e.g. YS MPa, UTS MPa, EL %, BH, etc.)
+CRITICAL — table reading:
+- Tables may use HTML with colspan/rowspan for merged header cells (e.g. a wide header spanning
+  several columns, with "Min"/"Max"/"Test Results" sub-rows beneath). Use that structure to determine
+  which header each value truly belongs to — do not assume simple 1-to-1 row/column position.
+- If the same value appears repeated identically across many rows, that's a red flag the table was
+  misread — re-check and find the row that genuinely corresponds to the correct heat/coil.
 
-Return STRICT JSON ONLY — no explanation, no markdown, no code fences:
-{{
-  "grade":                 "",
-  "supply_spec":           "",
-  "drawing_designation":   "",
-  "steel_grade_form":      "",
-  "chemical_properties":   {{"C%": "0.06", "Mn%": "0.35"}},
-  "mechanical_properties": {{"YS MPa": "320", "UTS MPa": "420", "EL %": "38"}}
-}}
-
-TEXT:
-{text}
-"""
+CRITICAL — number formatting:
+- Copy each value EXACTLY as printed, digit for digit, including leading/trailing zeros and exact
+  decimal position. Do not round. Do not shift the decimal point. Do not drop trailing zeros.
+- If a field is not present in the document, leave it as an empty string rather than guessing."""
 
     print(f"  🤖 Extracting test values from: {pdf_name}…")
-    content = _clean_json(_call_mistral({
-        "model": "mistral-large-latest",
-        "messages": [{"role": "user", "content": prompt}],
-    }))
+    result = extract_document_annotation(pdf_path, TestCertificate, document_annotation_prompt=prompt)
 
-    try:
-        return json.loads(content)
-    except json.JSONDecodeError as e:
-        print(f"  ⚠️  JSON parse failed: {e}")
-        return {}
+    return {
+        "grade": result.grade,
+        "supply_spec": result.supply_spec,
+        "drawing_designation": result.drawing_designation,
+        "steel_grade_form": result.steel_grade_form,
+        "section_txw": result.section_txw,
+        "chemical_properties": {p.name: p.value for p in result.chemical_properties},
+        "mechanical_properties": {p.name: p.value for p in result.mechanical_properties},
+    }
 
 
 # ── Generic extractor (used by legacy Streamlit tab 1) ───────────────────────
 
-def extract_json(text: str, pdf_name: str = "") -> list:
+class ProductEntry(BaseModel):
+    supply_spec: str = Field(default="", description="e.g. TS4012A7")
+    drawing_designation: str = Field(default="", description="e.g. CR3, HR4")
+    steel_grade_form: str = Field(default="", description="e.g. Cold Rolled, Hot Rolled")
+    mechanical_properties: List[PropertyValue] = Field(default_factory=list)
+    chemical_properties: List[PropertyValue] = Field(default_factory=list)
+
+
+class ProductEntries(BaseModel):
+    entries: List[ProductEntry] = Field(default_factory=list, description="All steel grade entries in the document")
+
+
+def extract_json(pdf_path: str, pdf_name: str = "") -> list:
     """
     Legacy extractor: returns a list of product entries from a standards PDF.
     Used by the Standards Library tab.
     """
-    if not text.strip():
-        raise ValueError("OCR text is empty.")
+    prompt = f"""This document is: "{pdf_name}". Extract ALL steel grade entries: supply_spec,
+drawing_designation, steel_grade_form, mechanical_properties, chemical_properties for each entry.
+If multiple entries exist, extract all of them, not just the first. Copy values exactly as printed."""
 
-    prompt = f"""
-You are an expert at reading industrial steel standard PDFs.
+    result = extract_document_annotation(pdf_path, ProductEntries, document_annotation_prompt=prompt)
 
-This document is: "{pdf_name}"
-
-Extract ALL steel grade entries.  For each entry return:
-- supply_spec           (e.g. "TS4012A7")
-- drawing_designation   (e.g. "CR3", "HR4")
-- steel_grade_form      (e.g. "Cold Rolled", "Hot Rolled")
-- mechanical_properties (dict of property -> value/range, e.g. {{"YS MPa": "270-380"}})
-- chemical_properties   (dict of element -> value/range, e.g. {{"C%": "0.10 max"}})
-
-Return STRICT JSON ONLY — a JSON array of objects:
-[
-  {{
-    "supply_spec": "",
-    "drawing_designation": "",
-    "steel_grade_form": "",
-    "mechanical_properties": {{}},
-    "chemical_properties": {{}}
-  }}
-]
-
-No explanation. No markdown. No code fences.
-
-TEXT:
-{text}
-"""
-
-    content = _clean_json(_call_mistral({
-        "model": "mistral-large-latest",
-        "messages": [{"role": "user", "content": prompt}],
-    }))
-
-    try:
-        parsed = json.loads(content)
-        return parsed if isinstance(parsed, list) else [parsed]
-    except json.JSONDecodeError as e:
-        print(f"  ⚠️  JSON parse failed: {e}")
-        return []
+    return [
+        {
+            "supply_spec": e.supply_spec,
+            "drawing_designation": e.drawing_designation,
+            "steel_grade_form": e.steel_grade_form,
+            "mechanical_properties": {p.name: p.value for p in e.mechanical_properties},
+            "chemical_properties": {p.name: p.value for p in e.chemical_properties},
+        }
+        for e in result.entries
+    ]

@@ -26,10 +26,10 @@ else:
 # Add comparator to path (ONE level up from backend)
 sys.path.insert(0, os.path.join(project_root, 'comparator'))
 
-from src.ocr import extract_text_from_pdf
-from src.extractor import extract_test_json
-from src.comparator import direct_compare, llm_compare
-from src.report import generate_pdf_report
+from comparator.src.ocr import extract_text_from_pdf
+from comparator.src.extractor import extract_test_json
+from comparator.src.comparator import direct_compare, llm_compare
+from comparator.src.report import generate_pdf_report
 
 app = FastAPI(title="Steel Grade Comparison API", version="1.0.0")
 
@@ -175,11 +175,9 @@ async def extract_test_values(file: UploadFile = File(...)):
             tmp_path = tmp.name
         
         try:
-            # Extract text first
-            text = extract_text_from_pdf(tmp_path)
-            
-            # Extract test values
-            test_entry = extract_test_json(text, pdf_name=file.filename)
+            # CHANGED: OCR + extraction now happen in ONE call inside extract_test_json.
+            # No more separate extract_text_from_pdf() step here.
+            test_entry = extract_test_json(tmp_path, pdf_name=file.filename)
             
             if not test_entry:
                 raise HTTPException(status_code=400, detail="No data could be extracted from this PDF")
@@ -229,14 +227,10 @@ async def compare_auto(file: UploadFile = File(...)):
         
         print(f"  📂 Saved temp PDF: {tmp_path}")
         
-        # Extract text
-        print(f"  📤 Extracting text from PDF…")
-        text = extract_text_from_pdf(tmp_path)
-        print(f"  ✅ OCR done — {len(text):,} chars")
-        
-        # Extract test values
-        print(f"  📋 Extracting test values…")
-        test_entry = extract_test_json(text, pdf_name=file.filename)
+        # CHANGED: OCR + extraction now happen in ONE call — no separate
+        # extract_text_from_pdf() step, and no standalone char-count print.
+        print(f"  📋 Extracting test values (OCR + extraction combined)…")
+        test_entry = extract_test_json(tmp_path, pdf_name=file.filename)
         
         if not test_entry:
             raise HTTPException(status_code=400, detail="No data could be extracted from this PDF. The PDF may not contain valid steel test data.")
