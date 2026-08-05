@@ -1,4 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "tailwindcss";
-* {
-  margin: 0;
+
+@theme {
+  /* Warm espresso/sienna brand palette */
+  --color-navy: #2c1a0e;         /* sidebar bg, "ink" twin — brand-dark */
+  --color-navy-soft: #3d2717;    /* sidebar hover */
+  --color-accent: #c84b1a;       /* brand red-orange — the one accent */
+  --color-accent-strong: #a83e14;
+  --color-success: #5c7a32;      /* warm moss, not a cool green */
+  --color-danger: #c84b1a;       /* same value as accent — accent doubles as error/danger */
+  --color-warning: #d4760a;      /* brand orange */
+  --color-info: #8b5e3c;         /* brand brown */
+  --color-canvas: #ffffff;       /* page background */
+  --color-ink: #2c1a0e;          /* primary text — same hex as navy, different role */
+  --color-muted: #7c6b5b;        /* secondary text */
+  --color-surface: #ffffff;      /* card/panel background */
+  --color-surface-2: #faf7f5;    /* hover tint, input background, subtle fills */
+  --color-border: #e8ddd8;
+
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  --radius-card: 16px;
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+html,
+body,
+#root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.25s ease-out;
 }

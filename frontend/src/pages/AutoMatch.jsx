@@ -1,11 +1,32 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
-
+import Card from "../components/ui/Card";
+import Button from "../components/ui/Button";
+import StepTabs from "../components/layout/StepTabs";
 import AutoMatchResults from "../components/AutoMatchResults";
+import {
+  IconUpload,
+  IconFileText,
+  IconSparkles,
+  IconTrophy,
+  IconEye,
+  IconEyeOff,
+  IconCheckCircle,
+  IconDownload,
+  IconRefresh,
+} from "../components/icons/Icons";
 
 const API_BASE_URL = "http://localhost:8000";
 
-export default function AutoMatch() {
+const STEPS = [
+  { id: "upload", title: "Upload Certificate", subtitle: "Material Test Certificate", icon: <IconUpload className="w-6 h-6" /> },
+  { id: "run", title: "Run Analysis", subtitle: "AI scans all standards", icon: <IconSparkles className="w-6 h-6" /> },
+  { id: "results", title: "Results", subtitle: "Best-matching grade", icon: <IconTrophy className="w-6 h-6" /> },
+];
+
+export default function AutoMatch({ onHeaderActionsChange, initialFile, onInitialFileConsumed }) {
+  const [currentStep, setCurrentStep] = useState(0);
+
   const [uploadedFile, setUploadedFile] = useState(null);
   const [autoResult, setAutoResult] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -13,25 +34,74 @@ export default function AutoMatch() {
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [error, setError] = useState(null);
   const [testData, setTestData] = useState(null);
+  const [standardsCount, setStandardsCount] = useState(null);
+
+  useEffect(() => {
+    axios
+      .get(`${API_BASE_URL}/standards/list`)
+      .then((res) => setStandardsCount((res.data.standards || []).length))
+      .catch(() => {});
+  }, []);
+
+  const resetAll = () => {
+    setUploadedFile(null);
+    setAutoResult(null);
+    setTestData(null);
+    setPdfPreview(null);
+    setShowPdfPreview(false);
+    setError(null);
+    setCurrentStep(0);
+  };
+
+  const handleDownloadReport = () => window.print();
+
+  useEffect(() => {
+    if (!onHeaderActionsChange) return;
+
+    if (currentStep === 2 && autoResult) {
+      onHeaderActionsChange(
+        <>
+          <Button variant="secondary" size="sm" onClick={handleDownloadReport}>
+            <IconDownload className="w-5 h-5" />
+            Download Report
+          </Button>
+          <Button variant="secondary" size="sm" onClick={resetAll}>
+            <IconRefresh className="w-5 h-5" />
+            Compare Another
+          </Button>
+        </>
+      );
+    } else {
+      onHeaderActionsChange(null);
+    }
+
+    return () => onHeaderActionsChange(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, autoResult]);
 
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
-
     if (!file) return;
 
     setUploadedFile(file);
     setAutoResult(null);
     setTestData(null);
     setError(null);
+    setShowPdfPreview(false);
 
     const reader = new FileReader();
-
-    reader.onload = (event) => {
-      setPdfPreview(event.target.result);
-    };
-
+    reader.onload = (event) => setPdfPreview(event.target.result);
     reader.readAsDataURL(file);
+
+    setCurrentStep(1);
   };
+
+  useEffect(() => {
+    if (!initialFile) return;
+    handleFileUpload({ target: { files: [initialFile] } });
+    onInitialFileConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFile]);
 
   const handleAutoMatch = async () => {
     if (!uploadedFile) {
@@ -41,300 +111,112 @@ export default function AutoMatch() {
 
     try {
       setLoading(true);
+      setError(null);
 
       const formData = new FormData();
       formData.append("file", uploadedFile);
 
       const res = await axios.post(`${API_BASE_URL}/compare/auto`, formData);
-
       setAutoResult(res.data);
       setTestData(res.data.test_data);
+      setCurrentStep(2);
     } catch (err) {
-      setError("Auto Match Failed");
+      setError("Auto match failed");
     } finally {
       setLoading(false);
     }
   };
 
+  const goToStep = (idx) => setCurrentStep(idx);
+
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
-      {/* Header */}
-      <div>
-        <h1
-          className="text-3xl font-bold text-slate-800"
-          style={{ marginBottom: "0.4rem" }}
-        >
-          🤖 Automatic Grade Matching
-        </h1>
+    <div className="w-full space-y-5">
+      <StepTabs steps={STEPS} currentStep={currentStep} onStepClick={goToStep} />
 
-        <p className="mt-2 text-slate-500" style={{ marginBottom: "1.5rem" }}>
-          Upload a material test certificate and automatically find the closest
-          matching steel grade across all standards.
-        </p>
-      </div>
-
-      {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3">
+        <div className="bg-danger/10 border border-danger/25 text-danger rounded-xl px-4 py-3 text-sm font-medium">
           {error}
         </div>
       )}
 
-      {/* Upload Card */}
-      <section className="bg-white">
-        <label className="block cursor-pointer">
-          <div
-            className="
-              border-2
-              border-dashed
-              border-slate-300
-              hover:border-blue-500
-              rounded-2xl
-              p-12
-              text-center
-              transition
-            "
-          >
-            <div className="text-5xl mb-4">📄</div>
-
-            <h3 className="font-semibold text-slate-700">
-              Click to Upload PDF
-            </h3>
-
-            <p className="text-sm text-slate-500 mt-2">
-              Material Test Certificate (MTC)
-            </p>
-          </div>
-
-          <input
-            type="file"
-            accept=".pdf"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-        </label>
-
-        {uploadedFile && (
-          <div
-            className="mt-6 border border-green-200 bg-green-50 rounded-lg p-4"
-            style={{ marginBottom: "1.5rem" }}
-          >
-            <div className="flex items-center justify-between">
-              {/* File Info */}
-              <div>
-                <p className="font-semibold text-slate-800">
-                  {uploadedFile.name}
-                </p>
-
-                <p className="text-sm text-slate-500 mt-1">
-                  {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB
-                </p>
+      {/* Step 1 — Upload */}
+      {currentStep === 0 && (
+        <Card>
+          <label className="block cursor-pointer">
+            <div className="border-2 border-dashed border-border hover:border-accent hover:bg-accent/5 rounded-2xl p-12 text-center transition-colors">
+              <div className="w-14 h-14 rounded-xl bg-accent/10 text-accent flex items-center justify-center mx-auto mb-4">
+                <IconUpload className="w-7 h-7" strokeWidth={1.6} />
               </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-3">
-                <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium">
-                  Uploaded
-                </span>
-
-                <button
-                  onClick={() => setShowPdfPreview(!showPdfPreview)}
-                  className="
-                    bg-white
-                    border
-                    border-slate-300
-                    hover:border-blue-500
-                    hover:bg-blue-50
-                    px-4
-                    py-2
-                    rounded-xl
-                    text-sm
-                    font-medium
-                    transition-all
-                  "
-                >
-                  {showPdfPreview ? "Hide Preview" : "Preview PDF"}
-                </button>
-              </div>
+              <h3 className="text-base font-bold text-ink">Click to upload PDF</h3>
+              <p className="text-sm text-muted mt-1">Material Test Certificate (MTC)</p>
             </div>
-          </div>
-        )}
-
-        {pdfPreview && (
-          <div className="mt-5">
-            {showPdfPreview && (
-              <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden">
-                <iframe
-                  src={pdfPreview}
-                  title="PDF Preview"
-                  className="w-full h-[700px]"
-                />
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* Run Auto Match */}
-      {uploadedFile && (
-        <section className="flex justify-center"
-        style={{ marginBottom: "2rem" }}>
-            <button
-              onClick={handleAutoMatch}
-              disabled={loading}
-              className="
-               w-[95%]
-              bg-blue-600
-              hover:bg-blue-700
-              disabled:opacity-50
-              disabled:cursor-not-allowed
-              text-white
-              px-8
-              py-3
-              rounded-2xl
-              font-semibold
-              shadow-sm
-              transition-all
-        "
-            >
-              {loading ? "Analyzing..." : "Run Analysis"}
-            </button>
-        
-        </section>
+            <input type="file" accept=".pdf" onChange={handleFileUpload} className="hidden" />
+          </label>
+        </Card>
       )}
 
-      {/* Extracted Properties */}
-      {testData && (
-        <section >
-          <div className="flex items-center justify-between"
-            style={{ margin: "0.5rem" }}>
+      {currentStep > 0 && uploadedFile && (
+        <button
+          type="button"
+          onClick={() => goToStep(0)}
+          className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-surface-2 border border-border text-left"
+        >
+          <span className="flex items-center gap-2 text-sm text-ink min-w-0">
+            <IconCheckCircle className="w-5 h-5 text-success shrink-0" strokeWidth={2} />
+            <IconFileText className="w-5 h-5 text-muted shrink-0" />
+            <span className="font-medium truncate">{uploadedFile.name}</span>
+            <span className="text-muted shrink-0">
+              ({(uploadedFile.size / 1024 / 1024).toFixed(2)} MB)
+            </span>
+          </span>
+          <span className="flex items-center gap-1 text-xs font-semibold text-accent shrink-0 ml-3">
+            <IconUpload className="w-4 h-4" strokeWidth={2} />
+            Change File
+          </span>
+        </button>
+      )}
+
+      {/* Step 2 — Run analysis */}
+      {currentStep === 1 && (
+        <Card className="space-y-5">
+          {pdfPreview && (
             <div>
-              <h2 className="text-2xl font-semibold text-slate-800">
-                Extracted Properties
-              </h2>
-
-              <p className="text-slate-500 mt-1">
-                Properties extracted from the uploaded certificate.
-              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowPdfPreview(!showPdfPreview)}
+              >
+                {showPdfPreview ? <IconEyeOff className="w-5 h-5" /> : <IconEye className="w-5 h-5" />}
+                {showPdfPreview ? "Hide certificate preview" : "Preview certificate"}
+              </Button>
+              {showPdfPreview && (
+                <div className="mt-3 border border-border rounded-xl overflow-hidden">
+                  <iframe src={pdfPreview} title="PDF Preview" className="w-full h-[500px]" />
+                </div>
+              )}
             </div>
-          </div>
+          )}
 
-          {/* Stats */}
-          <div className="grid md:grid-cols-3 gap-5 mb-8"
-          style={{ margin: "0.5rem" }}>
-            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5">
-              <p className="text-sm text-slate-500">Chemical Properties</p>
+          <p className="text-sm text-muted">
+            The AI will compare this certificate against every standard on file and
+            return the closest matching grade.
+          </p>
 
-              <h3 className="text-3xl font-bold text-blue-600 mt-2">
-                {Object.keys(testData.chemical_properties || {}).length}
-              </h3>
-            </div>
-
-            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5">
-              <p className="text-sm text-slate-500">Mechanical Properties</p>
-
-              <h3 className="text-3xl font-bold text-emerald-600 mt-2">
-                {Object.keys(testData.mechanical_properties || {}).length}
-              </h3>
-            </div>
-
-            <div className="bg-violet-50 border border-violet-100 rounded-2xl p-5">
-              <p className="text-sm text-slate-500">Total Properties</p>
-
-              <h3 className="text-3xl font-bold text-violet-600 mt-2">
-                {Object.keys(testData.chemical_properties || {}).length +
-                  Object.keys(testData.mechanical_properties || {}).length}
-              </h3>
-            </div>
-          </div>
-
-          <div className="grid lg:grid-cols-2 gap-6">
-            {/* Chemical */}
-            <div className="border border-slate-200 rounded-3xl p-6">
-              <h3 className="text-lg font-semibold text-slate-800 mb-5">
-                Chemical Properties
-              </h3>
-
-              <div className="max-h-[450px] overflow-y-auto">
-                {Object.entries(testData.chemical_properties || {}).length >
-                0 ? (
-                  Object.entries(testData.chemical_properties).map(
-                    ([key, val]) => (
-                      <div
-                        key={key}
-                        className="
-                  flex
-                  justify-between
-                  items-center
-                  py-3
-                  border-b
-                  border-slate-100
-                "
-                      >
-                        <span className="text-slate-700 font-medium">
-                          {key}
-                        </span>
-
-                        <code className="bg-slate-100 px-3 py-1.5 rounded-lg text-sm">
-                          {val}
-                        </code>
-                      </div>
-                    ),
-                  )
-                ) : (
-                  <p className="text-slate-400">No chemical properties found</p>
-                )}
-              </div>
-            </div>
-
-            {/* Mechanical */}
-            <div className="border border-slate-200 rounded-3xl p-6">
-              <h3 className="text-lg font-semibold text-slate-800 mb-5">
-                Mechanical Properties
-              </h3>
-
-              <div className="max-h-[450px] overflow-y-auto">
-                {Object.entries(testData.mechanical_properties || {}).length >
-                0 ? (
-                  Object.entries(testData.mechanical_properties).map(
-                    ([key, val]) => (
-                      <div
-                        key={key}
-                        className="
-                  flex
-                  justify-between
-                  items-center
-                  py-3
-                  border-b
-                  border-slate-100
-                "
-                      >
-                        <span className="text-slate-700 font-medium">
-                          {key}
-                        </span>
-
-                        <code className="bg-slate-100 px-3 py-1.5 rounded-lg text-sm">
-                          {val}
-                        </code>
-                      </div>
-                    ),
-                  )
-                ) : (
-                  <p className="text-slate-400">
-                    No mechanical properties found
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
+          <Button variant="accent" size="xl" onClick={handleAutoMatch} disabled={loading}>
+            <IconSparkles className="w-5 h-5" />
+            {loading ? "Analyzing..." : "Find Best Match"}
+          </Button>
+        </Card>
       )}
 
-      {/* Results */}
-      {autoResult && (
-        <section className="bg-white py-6">
-          <AutoMatchResults result={autoResult} testData={testData} />
-        </section>
+      {/* Step 3 — Results */}
+      {currentStep === 2 && autoResult && (
+        <AutoMatchResults
+          result={autoResult}
+          testData={testData}
+          standardsCount={standardsCount}
+          onDownloadReport={handleDownloadReport}
+        />
       )}
     </div>
   );

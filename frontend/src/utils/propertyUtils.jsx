@@ -90,6 +90,10 @@ export function calculateResultStats(
     (m) => m.within_range === false
   ).length;
 
+  const notApplicableCount =
+    Object.keys(chem_result?.not_in_standard || {}).length +
+    Object.keys(mech_result?.not_in_standard || {}).length;
+
   const total = allMatched.length;
 
   const passPercent =
@@ -117,6 +121,7 @@ export function calculateResultStats(
   return {
     passCount,
     failCount,
+    notApplicableCount,
     total,
     passPercent,
     verdict,
@@ -165,9 +170,14 @@ export function renderStandardProperties(
   );
 
   return filtered.map((p, idx) => (
-    <div key={idx} className="property-item">
-      <strong>{p.element}:</strong>
-      <code>{p.rv}</code>
+    <div
+      key={idx}
+      className="flex items-center justify-between py-2.5 border-b border-border last:border-b-0"
+    >
+      <span className="text-sm font-medium text-ink">{p.element}</span>
+      <code className="font-mono bg-surface-2 px-2.5 py-1 rounded-lg text-sm text-muted">
+        {p.rv}
+      </code>
     </div>
   ));
 }

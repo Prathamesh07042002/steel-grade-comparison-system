@@ -65,9 +65,8 @@ VITE_API_URL=http://localhost:8000
 
 ### 2. Install Dependencies
 
-#### Backend
+#### Backend (single requirements.txt at project root covers backend + comparator)
 ```bash
-cd backend
 pip install -r requirements.txt
 ```
 

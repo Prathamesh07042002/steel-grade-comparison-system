@@ -1,208 +1,111 @@
 import React from "react";
+import Badge from "./ui/Badge";
 
-export default function PropertyTable({ result }) {
+export default function PropertyTable({
+  result,
+  testLabel = "Test Value",
+  testSubLabel = null,
+  standardLabel = "Standard Value",
+  standardSubLabel = null,
+  showNotes = true,
+}) {
   const matched = result?.matched || {};
   const notInStd = result?.not_in_standard || {};
   const notInTest = result?.not_in_test || {};
 
   return (
-    <div className="space-y-8">
-
+    <div className="space-y-4">
       {/* Matched Properties */}
       <div>
-
-      
         {Object.keys(matched).length > 0 ? (
-
-          <div className="overflow-x-auto border border-slate-200 rounded-2xl">
-
-            <table className="w-full">
-
-              <thead className="bg-slate-50">
-
+          <div className="overflow-x-auto border border-border rounded-xl">
+            <table className="w-full text-sm">
+              <thead className="bg-surface-2">
                 <tr>
-
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">
-                    Property
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-ink">Property</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-ink">
+                    {testLabel}
+                    {testSubLabel && (
+                      <span className="block text-[10px] font-normal text-muted">{testSubLabel}</span>
+                    )}
                   </th>
-
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">
-                    Test Value
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-ink">
+                    {standardLabel}
+                    {standardSubLabel && (
+                      <span className="block text-[10px] font-normal text-muted">{standardSubLabel}</span>
+                    )}
                   </th>
-
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">
-                    Standard Value
-                  </th>
-
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">
-                    Status
-                  </th>
-
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-slate-700">
-                    Notes
-                  </th>
-
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-ink">Status</th>
+                  {showNotes && (
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-ink">Notes</th>
+                  )}
                 </tr>
-
               </thead>
-
               <tbody>
-
-                {Object.entries(matched).map(
-                  ([prop, info]) => (
-                    <tr
-                      key={prop}
-                      className="border-t border-slate-100"
-                    >
-
-                      <td className="px-4 py-4 font-medium text-slate-800">
-                        {prop}
-                      </td>
-
-                      <td className="px-4 py-4">
-                        <code className="bg-slate-100 px-2 py-1 rounded">
-                          {info.test_value}
-                        </code>
-                      </td>
-
-                      <td className="px-4 py-4">
-                        <code className="bg-slate-100 px-2 py-1 rounded">
-                          {info.standard_value}
-                        </code>
-                      </td>
-
-                      <td className="px-4 py-4">
-
-                        {info.within_range ? (
-                          <span
-                            className="
-                              bg-green-100
-                              text-green-700
-                              px-3
-                              py-1
-                              rounded-full
-                              text-sm
-                              font-medium
-                            "
-                          >
-                            PASS
-                          </span>
-                        ) : (
-                          <span
-                            className="
-                              bg-red-100
-                              text-red-700
-                              px-3
-                              py-1
-                              rounded-full
-                              text-sm
-                              font-medium
-                            "
-                          >
-                            FAIL
-                          </span>
-                        )}
-
-                      </td>
-
-                      <td className="px-4 py-4 text-slate-600">
-                        {info.note || "-"}
-                      </td>
-
-                    </tr>
-                  )
-                )}
-
+                {Object.entries(matched).map(([prop, info]) => (
+                  <tr key={prop} className="border-t border-border">
+                    <td className="px-3 py-2 font-medium text-ink">{prop}</td>
+                    <td className="px-3 py-2">
+                      <code className="font-mono bg-surface-2 px-1.5 py-0.5 rounded text-muted text-xs">
+                        {info.test_value}
+                      </code>
+                    </td>
+                    <td className="px-3 py-2">
+                      <code className="font-mono bg-surface-2 px-1.5 py-0.5 rounded text-muted text-xs">
+                        {info.standard_value}
+                      </code>
+                    </td>
+                    <td className="px-3 py-2">
+                      <Badge variant={info.within_range ? "success" : "error"}>
+                        {info.within_range ? "PASS" : "FAIL"}
+                      </Badge>
+                    </td>
+                    {showNotes && (
+                      <td className="px-3 py-2 text-muted text-xs">{info.note || "-"}</td>
+                    )}
+                  </tr>
+                ))}
               </tbody>
-
             </table>
-
           </div>
-
         ) : (
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-500">
+          <div className="bg-surface-2 border border-border rounded-xl p-4 text-muted text-sm">
             No matched properties found.
           </div>
         )}
-
       </div>
 
       {/* In Test But Not In Standard */}
       {Object.keys(notInStd).length > 0 && (
-
-        <div className="border border-amber-200 bg-amber-50 rounded-2xl p-6">
-
-          <h3 className="font-semibold text-amber-800 mb-4">
-            Present In Test Report Only
-          </h3>
-
-          <div className="space-y-2">
-
-            {Object.entries(notInStd).map(
-              ([prop, val]) => (
-                <div
-                  key={prop}
-                  className="
-                    flex
-                    justify-between
-                    border-b
-                    border-amber-100
-                    pb-2
-                  "
-                >
-                  <span className="font-medium">
-                    {prop}
-                  </span>
-
-                  <code>{val}</code>
-                </div>
-              )
-            )}
-
+        <div className="border border-warning/25 bg-warning/10 rounded-xl p-4">
+          <h3 className="font-semibold text-warning text-sm mb-2">Present In Test Report Only</h3>
+          <div className="space-y-1.5">
+            {Object.entries(notInStd).map(([prop, val]) => (
+              <div key={prop} className="flex justify-between text-sm border-b border-warning/15 pb-1.5">
+                <span className="font-medium text-ink">{prop}</span>
+                <code className="font-mono text-muted text-xs">{val}</code>
+              </div>
+            ))}
           </div>
-
         </div>
-
       )}
 
       {/* In Standard But Not In Test */}
       {Object.keys(notInTest).length > 0 && (
-
-        <div className="border border-blue-200 bg-blue-50 rounded-2xl p-6">
-
-          <h3 className="font-semibold text-blue-800 mb-4">
+        <div className="border border-info/25 bg-info/10 rounded-xl p-4">
+          <h3 className="font-semibold text-info text-sm mb-2">
             Required By Standard But Missing In Test Report
           </h3>
-
-          <div className="space-y-2">
-
-            {Object.entries(notInTest).map(
-              ([prop, val]) => (
-                <div
-                  key={prop}
-                  className="
-                    flex
-                    justify-between
-                    border-b
-                    border-blue-100
-                    pb-2
-                  "
-                >
-                  <span className="font-medium">
-                    {prop}
-                  </span>
-
-                  <code>{val}</code>
-                </div>
-              )
-            )}
-
+          <div className="space-y-1.5">
+            {Object.entries(notInTest).map(([prop, val]) => (
+              <div key={prop} className="flex justify-between text-sm border-b border-info/15 pb-1.5">
+                <span className="font-medium text-ink">{prop}</span>
+                <code className="font-mono text-muted text-xs">{val}</code>
+              </div>
+            ))}
           </div>
-
         </div>
-
       )}
-
     </div>
   );
 }

@@ -1,260 +1,241 @@
+import { useState } from "react";
+import Card from "./ui/Card";
+import Button from "./ui/Button";
+import Badge from "./ui/Badge";
+import ScoreRing from "./ui/ScoreRing";
 import ResultTabs from "./ResultTabs";
-import { getAutoMatchStats } from "../utils/propertyUtils";
+import {
+  IconXCircle,
+  IconCheckCircle,
+  IconDatabase,
+  IconTarget,
+  IconList,
+  IconDownload,
+} from "./icons/Icons";
 
-export default function AutoMatchResults({ result, testData }) {
+const TONE_CLASSES = {
+  success: "bg-success/10 text-success",
+  info: "bg-info/10 text-info",
+  accent: "bg-accent/10 text-accent",
+};
+
+function StatItem({ icon: Icon, tone, label, value }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${TONE_CLASSES[tone]}`}>
+        <Icon className="w-5 h-5" strokeWidth={2} />
+      </div>
+      <div>
+        <p className="text-xs text-muted whitespace-nowrap">{label}</p>
+        <p className="text-sm font-bold text-ink whitespace-nowrap">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function confidenceLabel(percent) {
+  if (percent >= 95) return "Very High";
+  if (percent >= 85) return "High";
+  if (percent >= 70) return "Moderate";
+  if (percent >= 50) return "Low";
+  return "Very Low";
+}
+
+function RankItem({ rank, name, score, isBest }) {
+  return (
+    <div className={`rounded-xl p-3 ${isBest ? "bg-accent/5 border border-accent/20" : ""}`}>
+      <div className="flex items-center gap-3 mb-2">
+        <span
+          className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+            isBest ? "bg-accent text-white" : "bg-surface-2 text-ink"
+          }`}
+        >
+          {rank}
+        </span>
+        <span className="font-semibold text-ink text-sm truncate">{name}</span>
+        {isBest && (
+          <Badge variant="success" className="ml-auto shrink-0">
+            Best Match
+          </Badge>
+        )}
+      </div>
+      <div className="flex items-center gap-3 pl-9">
+        <span className="text-xs text-muted shrink-0">Match Score</span>
+        <div className="flex-1 h-1.5 bg-surface-2 rounded-full overflow-hidden">
+          <div className="h-full bg-accent rounded-full" style={{ width: `${score}%` }} />
+        </div>
+        <span className="text-xs font-bold text-ink shrink-0">{score.toFixed(0)}%</span>
+      </div>
+    </div>
+  );
+}
+
+export default function AutoMatchResults({ result, testData, standardsCount, onDownloadReport }) {
+  const [showAllMatches, setShowAllMatches] = useState(false);
+
   const status = result?.result?.status;
   const best = result?.result?.best_match;
   const topMatches = result?.result?.top_matches || [];
 
   if (status === "NO_MATCH") {
+    const closest = result?.result?.closest_attempt;
     return (
-      <section className="space-y-8">
-        <div className="no-match-card">
-          <h3>❌ NO MATCH FOUND</h3>
-          <p>{result?.result?.message}</p>
-          {result?.result?.closest_attempt && (
-            <div className="closest-attempt">
-              <h4>🔍 Closest Attempt:</h4>
-              <table className="info-table">
-                <tbody>
-                  <tr>
-                    <td>
-                      <strong>Standard:</strong>
-                    </td>
-                    <td>{result.result.closest_attempt.standard_product}</td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <strong>File:</strong>
-                    </td>
-                    <td>{result.result.closest_attempt.standard_file}</td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <strong>Score:</strong>
-                    </td>
-                    <td>
-                      {(
-                        result.result.closest_attempt.overall_score * 100
-                      ).toFixed(1)}
-                      %
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>
-                      <strong>Reason:</strong>
-                    </td>
-                    <td>{result.result.closest_attempt.verdict_reason}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
+      <Card className="border-danger/25 bg-danger/5">
+        <div className="flex items-start gap-3">
+          <IconXCircle className="w-7 h-7 text-danger shrink-0 mt-0.5" strokeWidth={1.8} />
+          <div>
+            <h3 className="text-xl font-bold text-danger">No Match Found</h3>
+            <p className="text-ink mt-2">{result?.result?.message}</p>
+          </div>
         </div>
-      </section>
+
+        {closest && (
+          <div className="mt-5 border border-border rounded-xl p-5 bg-surface">
+            <h4 className="text-sm font-bold text-ink mb-3">Closest Attempt</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-muted">Standard</span>
+                <span className="font-medium text-ink">{closest.standard_product}</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-muted">File</span>
+                <span className="font-medium text-ink">{closest.standard_file}</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-2">
+                <span className="text-muted">Score</span>
+                <span className="font-medium text-ink">
+                  {(closest.overall_score * 100).toFixed(1)}%
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted">Reason</span>
+                <span className="font-medium text-ink text-right">{closest.verdict_reason}</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </Card>
     );
   }
 
   if (!best) {
-    return <div className="error-box">No results available</div>;
+    return (
+      <Card className="border-danger/25 bg-danger/5 text-danger text-center">
+        No results available
+      </Card>
+    );
   }
 
   const passCount = best.matched_count;
   const totalCount = best.standard_total;
-  const passPercent =
-    totalCount > 0 ? Math.round((passCount / totalCount) * 100) : 0;
+  const passPercent = totalCount > 0 ? Math.round((passCount / totalCount) * 100) : 0;
+  const isMatched = best.verdict === "MATCHED";
+  const isPartial = best.verdict === "PARTIAL";
+  const visibleMatches = showAllMatches ? topMatches : topMatches.slice(0, 3);
+  const heading = isMatched ? "Best Match Found" : isPartial ? "Partial Match" : best.verdict;
 
   return (
-    <section className="space-y-8">
-      <div className="space-y-6">
-        {/* Match Summary */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-8 text-white shadow-lg">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-blue-100 uppercase tracking-wider text-sm">
-                Match Result
-              </p>
+    <div className="space-y-5">
+      {/* Match Summary */}
+      <Card className={`p-6 ${isPartial ? "border-accent/25 bg-accent/10" : ""}`}>
+        <div className="flex flex-col md:flex-row items-center gap-6 md:gap-10">
+          <ScoreRing percent={passPercent} size={128} strokeWidth={10} className="text-accent" />
 
-              <h2 className="text-4xl font-bold mt-2">{best.verdict}</h2>
-
-              <p className="text-blue-100 mt-3">
-                {passCount} of {totalCount} properties matched
-              </p>
-            </div>
-
-            <div className="text-right">
-              <p className="text-blue-100 text-sm">Match Score</p>
-
-              <h2 className="text-5xl font-bold">{passPercent}%</h2>
-            </div>
-          </div>
-
-          <div className="mt-8">
-            <div className="h-3 bg-white/20 rounded-full overflow-hidden">
+          <div className="flex-1 w-full min-w-0">
+            <p className="text-accent font-extrabold text-xl uppercase tracking-wide">
+              {heading}
+            </p>
+            <p className="text-muted text-sm mt-1">
+              {passCount} of {totalCount} properties matched
+            </p>
+            <div className="mt-4 h-2.5 bg-surface-2 rounded-full overflow-hidden">
               <div
-                className="h-full bg-white rounded-full transition-all duration-700"
-                style={{
-                  width: `${passPercent}%`,
-                }}
+                className="h-full bg-accent rounded-full transition-all duration-700"
+                style={{ width: `${passPercent}%` }}
               />
             </div>
           </div>
-        </div>
 
-        {/* Statistics */}
-        <div className="grid md:grid-cols-3 gap-5" 
-        style={{ margin: "0.5rem" }}>
-          <div className="bg-[#ffffff] border border-slate-200 rounded-2xl p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Matched Properties</p>
-
-            <h3 className="text-3xl font-bold text-green-600 mt-2">
-              {passCount}
-            </h3>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Total Properties</p>
-
-            <h3 className="text-3xl font-bold text-slate-800 mt-2">
-              {totalCount}
-            </h3>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Match Confidence</p>
-
-            <h3 className="text-3xl font-bold text-blue-600 mt-2">
-              {passPercent}%
-            </h3>
+          <div className="flex items-center gap-6 md:gap-8 shrink-0">
+            <StatItem
+              icon={IconCheckCircle}
+              tone="success"
+              label="Matched Properties"
+              value={`${passCount} / ${totalCount}`}
+            />
+            <StatItem
+              icon={IconDatabase}
+              tone="info"
+              label="Total Standards Scanned"
+              value={standardsCount ? `${standardsCount}+` : "—"}
+            />
+            <StatItem
+              icon={IconTarget}
+              tone="accent"
+              label="Match Confidence"
+              value={confidenceLabel(passPercent)}
+            />
           </div>
         </div>
+      </Card>
 
-        {/* Best Match */}
-        <div className="bg-white ">
-          <div className="px-4 py-6 border-b border-slate-200">
-            <h3 className="text-2xl font-semibold text-slate-800">
-              Best Matching Standard
-            </h3>
-
-            <p className="text-slate-500 mt-1">
-              Highest scoring standard identified from the uploaded certificate.
-            </p>
+      {/* Top matches + property comparison */}
+      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5 items-start">
+        <Card>
+          <h3 className="text-lg font-bold text-ink mb-4">Top Matching Standards</h3>
+          <div className="space-y-3">
+            {visibleMatches.map((match, idx) => (
+              <RankItem
+                key={idx}
+                rank={idx + 1}
+                name={match.standard_product}
+                score={match.overall_score * 100}
+                isBest={idx === 0}
+              />
+            ))}
           </div>
 
-          <div className="grid md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-200">
-            <div className="p-6">
-              <p className="text-xs uppercase tracking-wide text-slate-400">
-                Standard Product
-              </p>
+          {topMatches.length > 3 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full mt-4"
+              onClick={() => setShowAllMatches((v) => !v)}
+            >
+              <IconList className="w-5 h-5" />
+              {showAllMatches ? "Show Top 3" : `View All Matches (Top ${topMatches.length})`}
+            </Button>
+          )}
+        </Card>
 
-              <p className="font-semibold text-slate-800 mt-2">
-                {best.standard_product}
-              </p>
-            </div>
-
-            <div className="p-6">
-              <p className="text-xs uppercase tracking-wide text-slate-400">
-                Test Product
-              </p>
-
-              <p className="font-semibold text-slate-800 mt-2">
-                {best.test_product || testData?.grade || "Unknown"}
-              </p>
-            </div>
-
-            <div className="p-6">
-              <p className="text-xs uppercase tracking-wide text-slate-400">
-                Name Match
-              </p>
-
-              <p
-                className={`font-semibold mt-2 ${
-                  best.name_match ? "text-green-600" : "text-red-600"
-                }`}
-              >
-                {best.name_match ? "Matched" : "Not Matched"}
-              </p>
-            </div>
-
-            <div className="p-6">
-              <p className="text-xs uppercase tracking-wide text-slate-400">
-                Standard File
-              </p>
-
-              <p className="font-semibold text-slate-800 mt-2 break-all">
-                {best.standard_file}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Analysis Summary */}
-        <div className="bg-[#f1f1f18e] p-6 rounded-2xl">
-          <h4 className="text-lg font-semibold text-slate-800 ">
-            Analysis Summary : <span className="text-slate-600 text-lg font-normal">
-              {best.verdict_reason}
-          </span>
-          </h4>
-
-      
-        </div>
+        <Card>
+          <h3 className="text-lg font-bold text-ink mb-5">Property Comparison</h3>
+          <ResultTabs
+            chem_result={best.chemical_properties}
+            mech_result={best.mechanical_properties}
+            tableProps={{
+              testLabel: "Test Value",
+              testSubLabel: "(Extracted)",
+              standardLabel: "Best Match Standard",
+              standardSubLabel: `(${best.standard_product})`,
+              showNotes: false,
+            }}
+          />
+        </Card>
       </div>
 
-      <div className="bg-white pt-9 pb-3">
-        <h3 className="text-xl font-semibold text-slate-800 mb-6">
-          Property Comparison
-        </h3>
-
-        <ResultTabs
-          chem_result={best.chemical_properties}
-          mech_result={best.mechanical_properties}
-        />
-      </div>
-
-      {topMatches.length > 0 && (
-        <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm">
-          <h3 className="text-xl font-semibold text-slate-800 mb-6">
-            Top Matching Standards
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left py-3">Rank</th>
-
-                  <th className="text-left py-3">Standard</th>
-
-                  <th className="text-left py-3">Score</th>
-
-                  <th className="text-left py-3">Matched</th>
-
-                  <th className="text-left py-3">Verdict</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topMatches.map((match, idx) => (
-                  <tr
-                    key={idx}
-                    className="border-b border-slate-100 text-align-center"
-                  >
-                    <td>{idx + 1}</td>
-                    <td>{match.standard_product}</td>
-                    <td>
-                      <span className="font-semibold text-blue-600">
-                        {(match.overall_score * 100).toFixed(1)}%
-                      </span>
-                    </td>
-                    <td>
-                      {match.matched_count}/{match.standard_total}
-                    </td>
-                    <td>{match.verdict}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {/* Bottom summary bar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-success/10 border border-success/25 rounded-2xl px-5 py-4">
+        <div className="flex items-center gap-2 text-sm min-w-0">
+          <IconCheckCircle className="w-6 h-6 text-success shrink-0" strokeWidth={2} />
+          <span className="font-bold text-ink shrink-0">Analysis Summary:</span>
+          <span className="text-muted truncate">{best.verdict_reason}</span>
         </div>
-      )}
-    </section>
+        <Button variant="accent" onClick={onDownloadReport} className="shrink-0">
+          <IconDownload className="w-5 h-5" />
+          Download Full Report (PDF)
+        </Button>
+      </div>
+    </div>
   );
 }

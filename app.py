@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from src.ocr        import extract_text_from_pdf
+from backend.ocr        import extract_text_from_pdf
 from src.extractor  import extract_json, extract_test_json
 from src.comparator import direct_compare, llm_compare
 from src.report     import generate_pdf_report
