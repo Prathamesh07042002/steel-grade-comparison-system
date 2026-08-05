@@ -10,10 +10,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from backend.ocr        import extract_text_from_pdf
-from src.extractor  import extract_json, extract_test_json
-from src.comparator import direct_compare, llm_compare
-from src.report     import generate_pdf_report
+from comparator.src.ocr        import extract_text_from_pdf
+from comparator.src.extractor  import extract_json, extract_test_json
+from comparator.src.comparator import direct_compare, llm_compare
+from comparator.src.report     import generate_pdf_report
 from ga             import load_ga, track_event
 
 # ── Page config ───────────────────────────────────────────────────────────────
@@ -433,7 +433,8 @@ with tab_p1:
                 st.divider()
                 try:
                     pdf_bytes = generate_pdf_report(
-                        up1.name, grade_key, grade_key, cr, mr, pipeline="Manual"
+                        up1.name, grade_key, grade_key, cr, mr, pipeline="Manual",
+                        section_txw=te.get("section_txw", []),
                     )
 
                     # ── TRACK: download button click in Pipeline 1 ────────────
@@ -684,6 +685,14 @@ with tab_p2:
                         best.get("standard_product", "Auto"),
                         cr_llm, mr_llm,
                         pipeline="Auto",
+                        test_product=best.get("test_product"),
+                        verdict=best.get("verdict"),
+                        overall_score=best.get("overall_score"),
+                        verdict_reason=best.get("verdict_reason"),
+                        name_match=best.get("name_match"),
+                        name_match_reason=best.get("name_match_reason"),
+                        top_matches=result.get("top_matches", []),
+                        section_txw=test_entry.get("section_txw", []),
                     )
 
                     # ── TRACK: download button click in Pipeline 2 ────────────

@@ -129,6 +129,7 @@ def extract_test_json(text: str, pdf_name: str = "") -> dict:
       "supply_spec":           "TS4012",
       "drawing_designation":   "CR3",
       "steel_grade_form":      "Cold Rolled",
+      "section_txw":           ["3.000x1250.000mm", "3.000x1250.000mm"],
       "chemical_properties":   {"C%": "0.06", "Mn%": "0.35", ...},
       "mechanical_properties": {"YS MPa": "320", "UTS MPa": "420", "EL %": "38"}
     }
@@ -146,8 +147,11 @@ Extract the ACTUAL MEASURED values (not specification limits) for:
 2. Supply spec (e.g. TS4012, IS2062, etc.)
 3. Drawing designation
 4. Steel grade form (e.g. Cold Rolled, Hot Rolled, Galvanised, etc.)
-5. Chemical properties (actual test values, e.g. C%, Mn%, Si%, P%, S%, Al%, etc.)
-6. Mechanical properties (actual test values, e.g. YS MPa, UTS MPa, EL %, BH, etc.)
+5. Section T×W — find ALL occurrences of "Section(T*W)" or "Section(TxW)" in the document
+   and return every value as a list (e.g. ["3.000x1250.000mm", "3.000x1250.000mm"]).
+   If only one value exists return a single-item list. If none found return [].
+6. Chemical properties (actual test values, e.g. C%, Mn%, Si%, P%, S%, Al%, etc.)
+7. Mechanical properties (actual test values, e.g. YS MPa, UTS MPa, EL %, BH, etc.)
 
 Return STRICT JSON ONLY — no explanation, no markdown, no code fences:
 {{
@@ -155,6 +159,7 @@ Return STRICT JSON ONLY — no explanation, no markdown, no code fences:
   "supply_spec":           "",
   "drawing_designation":   "",
   "steel_grade_form":      "",
+  "section_txw":           [],
   "chemical_properties":   {{"C%": "0.06", "Mn%": "0.35"}},
   "mechanical_properties": {{"YS MPa": "320", "UTS MPa": "420", "EL %": "38"}}
 }}

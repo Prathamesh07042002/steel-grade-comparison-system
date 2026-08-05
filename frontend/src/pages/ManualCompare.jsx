@@ -14,6 +14,7 @@ import {
   IconEye,
   IconEyeOff,
   IconCheckCircle,
+  IconDownload,
 } from "../components/icons/Icons";
 import {
   parseProperties,
@@ -138,6 +139,38 @@ export default function ManualCompare() {
       setError("Comparison failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownloadReport = async () => {
+    if (!uploadedFile || !chem_result || !mech_result) return;
+
+    try {
+      const res = await axios.post(
+        `${API_BASE_URL}/report/generate-pdf`,
+        {
+          test_filename: uploadedFile.name,
+          selected_spec: selectedDesignation,
+          selected_desig: selectedDesignation,
+          chem_result,
+          mech_result,
+          pipeline: "Manual",
+          section_txw: testData?.section_txw || [],
+        },
+        { responseType: "blob" }
+      );
+
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = url;
+      const base = uploadedFile.name.replace(/\.pdf$/i, "");
+      link.setAttribute("download", `p1_comparison_${base}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError("Failed to generate PDF report");
     }
   };
 
@@ -300,9 +333,15 @@ export default function ManualCompare() {
             onChangeStandard={() => goToStep(1)}
           />
 
-          <Button variant="accent" size="xl" onClick={resetAll}>
-            Compare Again
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button variant="accent" size="xl" onClick={handleDownloadReport} className="flex-1">
+              <IconDownload className="w-5 h-5" />
+              Download PDF Report
+            </Button>
+            <Button variant="secondary" size="xl" onClick={resetAll} className="flex-1">
+              Compare Again
+            </Button>
+          </div>
         </div>
       )}
     </div>

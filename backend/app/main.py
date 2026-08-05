@@ -1,8 +1,8 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 import tempfile
 import os
 import sys
@@ -26,10 +26,10 @@ else:
 # Add comparator to path (ONE level up from backend)
 sys.path.insert(0, os.path.join(project_root, 'comparator'))
 
-from src.ocr import extract_text_from_pdf
-from src.extractor import extract_test_json
-from src.comparator import direct_compare, llm_compare
-from src.report import generate_pdf_report
+from comparator.src.ocr import extract_text_from_pdf
+from comparator.src.extractor import extract_test_json
+from comparator.src.comparator import direct_compare, llm_compare
+from comparator.src.report import generate_pdf_report
 
 app = FastAPI(title="Steel Grade Comparison API", version="1.0.0")
 
@@ -277,11 +277,22 @@ class ReportGenerationRequest(BaseModel):
     chem_result: Dict
     mech_result: Dict
     pipeline: str = "Manual"
+    # Pipeline 2 (Auto Match) only — the LLM's best-match fields, so the PDF's
+    # headline verdict/score/reasoning match what's shown on screen instead of
+    # being recomputed independently.
+    test_product: Optional[str] = None
+    verdict: Optional[str] = None
+    overall_score: Optional[float] = None
+    verdict_reason: Optional[str] = None
+    name_match: Optional[bool] = None
+    name_match_reason: Optional[str] = None
+    top_matches: Optional[List[Dict]] = None
+    section_txw: Optional[List[str]] = None
 
 
 @app.post("/report/generate-pdf")
 async def generate_report_pdf(request: ReportGenerationRequest):
-    """Generate a PDF report from comparison results."""
+    """Generate a PDF report from comparison results and return the file bytes."""
     try:
         pdf_bytes = generate_pdf_report(
             test_filename=request.test_filename,
@@ -289,19 +300,23 @@ async def generate_report_pdf(request: ReportGenerationRequest):
             selected_desig=request.selected_desig,
             chem_result=request.chem_result,
             mech_result=request.mech_result,
-            pipeline=request.pipeline
+            pipeline=request.pipeline,
+            test_product=request.test_product,
+            verdict=request.verdict,
+            overall_score=request.overall_score,
+            verdict_reason=request.verdict_reason,
+            name_match=request.name_match,
+            name_match_reason=request.name_match_reason,
+            top_matches=request.top_matches,
+            section_txw=request.section_txw,
         )
-        
-        # Save to temp file for download
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
-            tmp.write(pdf_bytes)
-            tmp_path = tmp.name
-        
-        return {
-            "success": True,
-            "pdf_size": len(pdf_bytes),
-            "filename": f"report_{request.test_filename}.pdf"
-        }
+
+        filename = f"report_{request.test_filename}.pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

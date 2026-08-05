@@ -20,8 +20,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()   # FIX 3: Load API key from .env file
 
-from src.ocr       import extract_text_from_pdf
-from src.extractor import extract_standards_json
+from comparator.src.ocr       import extract_text_from_pdf
+from comparator.src.extractor import extract_standards_json
 
 
 def parse_grade_from_filename(filename: str) -> str:

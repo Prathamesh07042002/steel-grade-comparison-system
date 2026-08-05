@@ -53,7 +53,45 @@ export default function AutoMatch({ onHeaderActionsChange, initialFile, onInitia
     setCurrentStep(0);
   };
 
-  const handleDownloadReport = () => window.print();
+  const handleDownloadReport = async () => {
+    const best = autoResult?.result?.best_match;
+    if (!best) return;
+
+    try {
+      const res = await axios.post(
+        `${API_BASE_URL}/report/generate-pdf`,
+        {
+          test_filename: uploadedFile?.name || "test.pdf",
+          selected_spec: best.standard_file || "Auto",
+          selected_desig: best.standard_product || "Auto",
+          chem_result: best.chemical_properties || {},
+          mech_result: best.mechanical_properties || {},
+          pipeline: "Auto",
+          test_product: best.test_product,
+          verdict: best.verdict,
+          overall_score: best.overall_score,
+          verdict_reason: best.verdict_reason,
+          name_match: best.name_match,
+          name_match_reason: best.name_match_reason,
+          top_matches: autoResult?.result?.top_matches || [],
+          section_txw: testData?.section_txw || [],
+        },
+        { responseType: "blob" }
+      );
+
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = url;
+      const base = (uploadedFile?.name || "report").replace(/\.pdf$/i, "");
+      link.setAttribute("download", `p2_automatch_${base}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError("Failed to generate PDF report");
+    }
+  };
 
   useEffect(() => {
     if (!onHeaderActionsChange) return;
