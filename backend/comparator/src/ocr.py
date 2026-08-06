@@ -1,26 +1,3 @@
-"""
-ocr.py — Rotation-corrected, single-call OCR + structured extraction.
-
-This combines two things we learned:
-  1. The manager's original request: use Mistral's `document_annotation`
-     to do OCR + structured extraction in ONE call (no separate chat
-     completion call needed).
-  2. What we found while debugging wrong values: several scanned
-     certificates are physically rotated (90/180/270°), which breaks
-     column alignment for ANY OCR approach — single-call or two-call.
-     That misalignment, not the single-call method, was the real cause
-     of wrong extracted values.
-
-So the pipeline is now:
-    PDF -> rasterize page -> detect rotation (Tesseract OSD) -> correct it
-        -> send corrected image to Mistral's document_annotation (ONE call)
-        -> schema-validated structured JSON back directly
-
-Requires:
-  pip install pymupdf pytesseract mistralai
-  Tesseract OCR engine installed separately (native program, not pip):
-  https://github.com/UB-Mannheim/tesseract/wiki  (Windows)
-"""
 
 import base64
 import io
