@@ -239,7 +239,7 @@ async def compare_auto(file: UploadFile = File(...)):
         
         # Auto-match
         print(f"  🤖 Running LLM auto-match against standards…")
-        result = llm_compare(test_entry, STANDARDS_JSON_DIR)
+        result = llm_compare(test_entry, STANDARDS_JSON_DIR, pdf_filename=file.filename)
         print(f"  ✅ Auto-match complete")
         
         return {
