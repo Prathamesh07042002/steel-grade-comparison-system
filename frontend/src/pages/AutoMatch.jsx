@@ -24,7 +24,7 @@ const STEPS = [
   { id: "results", title: "Results", subtitle: "Best-matching grade", icon: <IconTrophy className="w-6 h-6" /> },
 ];
 
-export default function AutoMatch({ onHeaderActionsChange, initialFile, onInitialFileConsumed }) {
+export default function AutoMatch({ onHeaderActionsChange, initialFile, onFileChange }) {
   const [currentStep, setCurrentStep] = useState(0);
 
   const [uploadedFile, setUploadedFile] = useState(null);
@@ -122,6 +122,7 @@ export default function AutoMatch({ onHeaderActionsChange, initialFile, onInitia
     if (!file) return;
 
     setUploadedFile(file);
+    onFileChange?.(file);
     setAutoResult(null);
     setTestData(null);
     setError(null);
@@ -135,9 +136,8 @@ export default function AutoMatch({ onHeaderActionsChange, initialFile, onInitia
   };
 
   useEffect(() => {
-    if (!initialFile) return;
+    if (!initialFile || initialFile === uploadedFile) return;
     handleFileUpload({ target: { files: [initialFile] } });
-    onInitialFileConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialFile]);
 

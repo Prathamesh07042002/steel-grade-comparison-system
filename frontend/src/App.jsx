@@ -18,11 +18,11 @@ const PAGE_COPY = {
 export default function App() {
   const [activePage, setActivePage] = useState("landing");
   const [headerActions, setHeaderActions] = useState(null);
-  const [pendingFile, setPendingFile] = useState(null);
+  const [sharedFile, setSharedFile] = useState(null);
 
   const navigate = (page, file) => {
     setHeaderActions(null);
-    if (file) setPendingFile(file);
+    if (file) setSharedFile(file);
     setActivePage(page);
   };
 
@@ -40,12 +40,14 @@ export default function App() {
       subtitle={copy.subtitle}
       actions={headerActions}
     >
-      {activePage === "manual" && <ManualCompare />}
+      {activePage === "manual" && (
+        <ManualCompare initialFile={sharedFile} onFileChange={setSharedFile} />
+      )}
       {activePage === "auto" && (
         <AutoMatch
           onHeaderActionsChange={setHeaderActions}
-          initialFile={pendingFile}
-          onInitialFileConsumed={() => setPendingFile(null)}
+          initialFile={sharedFile}
+          onFileChange={setSharedFile}
         />
       )}
     </AppShell>

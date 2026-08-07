@@ -12,7 +12,6 @@ from dotenv import load_dotenv
 
 # Load .env from backend directory
 backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # backend/
-project_root = os.path.dirname(backend_dir)  # root/
 env_path = os.path.join(backend_dir, '.env')
 load_dotenv(dotenv_path=env_path)
 
@@ -23,8 +22,8 @@ if not api_key:
 else:
     print("✅ MISTRAL_API_KEY loaded successfully")
 
-# Add comparator to path (ONE level up from backend)
-sys.path.insert(0, os.path.join(project_root, 'comparator'))
+# Add comparator to path (lives inside backend/, not the repo root)
+sys.path.insert(0, backend_dir)
 
 from comparator.src.ocr import extract_text_from_pdf
 from comparator.src.extractor import extract_test_json
@@ -43,7 +42,7 @@ app.add_middleware(
 )
 
 # Constants - Path to standards directory (at project root level)
-STANDARDS_JSON_DIR = os.path.join(project_root, 'comparator', 'data', 'standards_json')
+STANDARDS_JSON_DIR = os.path.join(backend_dir, 'comparator', 'data', 'standards_json')
 os.makedirs(STANDARDS_JSON_DIR, exist_ok=True)
 print(f"✅ STANDARDS_JSON_DIR: {STANDARDS_JSON_DIR}")
 print(f"✅ Standards exist: {os.path.isdir(STANDARDS_JSON_DIR)}")
@@ -175,11 +174,9 @@ async def extract_test_values(file: UploadFile = File(...)):
             tmp_path = tmp.name
         
         try:
-            # Extract text first
-            text = extract_text_from_pdf(tmp_path)
-            
-            # Extract test values
-            test_entry = extract_test_json(text, pdf_name=file.filename)
+            # CHANGED: OCR + extraction now happen in ONE call inside extract_test_json.
+            # No more separate extract_text_from_pdf() step here.
+            test_entry = extract_test_json(tmp_path, pdf_name=file.filename)
             
             if not test_entry:
                 raise HTTPException(status_code=400, detail="No data could be extracted from this PDF")
@@ -229,14 +226,10 @@ async def compare_auto(file: UploadFile = File(...)):
         
         print(f"  📂 Saved temp PDF: {tmp_path}")
         
-        # Extract text
-        print(f"  📤 Extracting text from PDF…")
-        text = extract_text_from_pdf(tmp_path)
-        print(f"  ✅ OCR done — {len(text):,} chars")
-        
-        # Extract test values
-        print(f"  📋 Extracting test values…")
-        test_entry = extract_test_json(text, pdf_name=file.filename)
+        # CHANGED: OCR + extraction now happen in ONE call — no separate
+        # extract_text_from_pdf() step, and no standalone char-count print.
+        print(f"  📋 Extracting test values (OCR + extraction combined)…")
+        test_entry = extract_test_json(tmp_path, pdf_name=file.filename)
         
         if not test_entry:
             raise HTTPException(status_code=400, detail="No data could be extracted from this PDF. The PDF may not contain valid steel test data.")

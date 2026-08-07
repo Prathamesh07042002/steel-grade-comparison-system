@@ -29,7 +29,7 @@ const STEPS = [
   { id: "results", title: "Results", subtitle: "Pass / fail breakdown", icon: <IconTrophy className="w-6 h-6" /> },
 ];
 
-export default function ManualCompare() {
+export default function ManualCompare({ initialFile, onFileChange }) {
   const [currentStep, setCurrentStep] = useState(0);
 
   const [uploadedFile, setUploadedFile] = useState(null);
@@ -65,6 +65,7 @@ export default function ManualCompare() {
     if (!file) return;
 
     setUploadedFile(file);
+    onFileChange?.(file);
     setSelectedStandard("");
     setSelectedDesignation(null);
     setStandardDetails(null);
@@ -80,6 +81,12 @@ export default function ManualCompare() {
 
     setCurrentStep(1);
   };
+
+  useEffect(() => {
+    if (!initialFile || initialFile === uploadedFile) return;
+    handleFileUpload({ target: { files: [initialFile] } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFile]);
 
   const handleStandardSelect = async (stdName) => {
     setSelectedStandard(stdName);
