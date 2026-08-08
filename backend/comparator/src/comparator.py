@@ -25,6 +25,12 @@ MISTRAL_MODEL = "mistral-large-latest"
 MAX_RETRIES = 4          # total attempts
 RETRY_BASE_DELAY = 5     # seconds — doubles each retry: 5 → 10 → 20 → 40
 
+# A name-matched standard needs at least this raw coverage score to get
+# priority over a higher-scoring standard that didn't name-match. Below
+# this floor, name_match is NOT used to rescue a candidate — see
+# _select_best() for the two worked examples this rule is built from.
+NAME_MATCH_FLOOR = 0.60
+
 
 # ── Shared LLM caller ─────────────────────────────────────────────────────────
 
@@ -227,9 +233,131 @@ def _compute_coverage(result: dict) -> dict:
     return result
 
 
+# ── Helper: deterministic name matching (NOT left to the LLM to judge) ───────
+# The LLM was self-reporting name_match/name_match_reason while ALSO doing
+# the property comparison — same "trust the model's own claim" problem we
+# hit with extraction. This computes it in plain Python instead, straight
+# from the fields extractor.py actually pulled off the certificate.
+
+def _normalize_name(s: str) -> str:
+    """Strip everything but letters/digits and uppercase, so "IS 2062 E350-A",
+    "is2062e350a", and "IS-2062_E350.A" all compare equal."""
+    return re.sub(r"[^A-Za-z0-9]", "", s or "").upper()
+
+
+def _extract_grade_from_filename(pdf_filename: str) -> str:
+    """Pull the grade token straight out of the uploaded PDF's filename.
+
+    Your filenames follow "<thickness>MM_<GRADE>_<vendor...>_<batch>_<date>",
+    e.g. "3MM_FE-410_TATA_STEEL_51132_300326.pdf" -> "FE-410",
+         "1.6MM_E-34_POSHS_0009_020526.pdf" -> "E-34",
+         "0.8MM_HSLA340_TATA_STEEL_51135_300326.pdf" -> "HSLA340".
+    The grade is always the token right after the thickness prefix, so this
+    doesn't need to know how many vendor/batch tokens follow — it just reads
+    up to the next underscore. Returns "" if the filename doesn't match this
+    convention (caller falls back to OCR-extracted names in that case).
+    """
+    name = os.path.splitext(os.path.basename(pdf_filename or ""))[0]
+    match = re.match(r"^\s*\d+(?:\.\d+)?\s*MM[_\s]+([A-Za-z0-9\-]+)", name, flags=re.IGNORECASE)
+    return match.group(1) if match else ""
+
+
+def _extract_test_names(test_data: dict, pdf_filename: str = "") -> list:
+    """Candidate name strings for the test side of the match, most reliable
+    first. The filename-derived grade goes first — it's typed by a human and
+    never passes through OCR or an LLM, so it's the least guess-prone signal
+    we have. OCR-extracted grade/supply_spec/drawing_designation are kept as
+    fallbacks for filenames that don't follow the naming convention."""
+    names = []
+    filename_grade = _extract_grade_from_filename(pdf_filename)
+    if filename_grade:
+        names.append(filename_grade)
+    for key in ("grade", "supply_spec", "drawing_designation"):
+        v = test_data.get(key)
+        if v:
+            names.append(str(v))
+    return names
+
+
+def _extract_standard_name(entry: dict) -> str:
+    """Candidate name string for one loaded standard entry (see the
+    all_standards list built in llm_compare). Tries common explicit fields
+    first, then falls back to the shape extract_standards_json() actually
+    produces — {"<grade_name>": {"parameters": [...]}} — where the grade
+    name is the dict's only key, not a value. Falls back to the filename
+    if nothing else is found."""
+    product = entry.get("product", {})
+    if isinstance(product, dict):
+        for key in ("grade", "name", "standard_product", "grade_name"):
+            if product.get(key):
+                return str(product[key])
+        if len(product) == 1:
+            return str(next(iter(product.keys())))
+    return os.path.splitext(entry.get("file", ""))[0]
+
+
+def _names_match(test_data: dict, std_name: str, pdf_filename: str = "") -> bool:
+    """True if any test-side name string and the standard's name are equal,
+    or one contains the other, after normalization. Containment (not just
+    equality) matters here — e.g. test grade "E-46(Thin)" vs standard name
+    "E46" should still count as the same grade family."""
+    std_norm = _normalize_name(std_name)
+    if not std_norm:
+        return False
+    for test_name in _extract_test_names(test_data, pdf_filename):
+        test_norm = _normalize_name(test_name)
+        if test_norm and (test_norm == std_norm or test_norm in std_norm or std_norm in test_norm):
+            return True
+    return False
+
+
+# ── Helper: select best match with name-match floor rule ─────────────────────
+
+def _select_best(results: list) -> list:
+    """
+    Reorder results so index 0 is the actual winner under this rule:
+
+    A name-matched candidate takes priority over a higher-scoring
+    non-name-matched candidate — but ONLY if the name-matched candidate's
+    own score still clears NAME_MATCH_FLOOR (0.50). A name match never
+    rescues a candidate whose underlying data doesn't reasonably back it up.
+
+    Worked examples this rule is built from:
+
+    Example 1 (name match with bad data — must NOT be rescued):
+        Standard A: name matches, but only 3/10 properties match → 30%
+        Standard B: name does NOT match, 9/10 properties match   → 90%
+        A's score (30%) is below NAME_MATCH_FLOOR → A gets NO priority.
+        Winner: B (90%, wins on score alone, same as a plain sort would give).
+
+    Example 2 (the actual case we're fixing):
+        Standard A: name matches, 91% of properties match
+        Standard B: name does NOT match, 95% of properties match (maybe
+                    OCR noise inflated it)
+        A's score (91%) clears NAME_MATCH_FLOOR → A gets priority over B,
+        even though B's raw score is technically higher.
+        Winner: A — this is the case a plain (score, name_match) sort key
+        gets wrong, because it only uses name_match to break EXACT ties.
+
+    If no candidate is both name-matched and above the floor, falls back to
+    plain highest-score-wins (Example 1's outcome, and the general case with
+    no name match at all).
+    """
+    scored = sorted(results, key=lambda x: float(x.get("overall_score", 0)), reverse=True)
+
+    qualified_name_matches = [
+        r for r in scored
+        if r.get("name_match") and float(r.get("overall_score", 0)) >= NAME_MATCH_FLOOR
+    ]
+
+    winner = qualified_name_matches[0] if qualified_name_matches else scored[0]
+    rest = [r for r in scored if r is not winner]
+    return [winner] + rest
+
+
 # ── Pipeline 2: LLM auto-match comparison ────────────────────────────────────
 
-def llm_compare(test_data: dict, standards_json_dir: str) -> dict:
+def llm_compare(test_data: dict, standards_json_dir: str, pdf_filename: str = "") -> dict:
     """
     Compare ONE test product against all standards, ranked by COVERAGE SCORE.
 
@@ -252,6 +380,16 @@ def llm_compare(test_data: dict, standards_json_dir: str) -> dict:
     Args:
         test_data:           Extracted test dict from extractor.extract_test_json()
         standards_json_dir:  Folder containing standard *.json files
+        pdf_filename:        Original uploaded filename (e.g.
+                              "3MM_FE-410_TATA_STEEL_51132_300326.pdf"). Used
+                              as the PRIMARY name-match signal — the grade
+                              token in the filename never passes through OCR
+                              or an LLM, so it's more reliable than the
+                              OCR-extracted grade. Falls back to test_data's
+                              grade/supply_spec/drawing_designation if the
+                              filename doesn't follow the naming convention
+                              or isn't passed. Pass your uploaded_file.name
+                              from app.py here.
 
     Returns:
         {
@@ -289,6 +427,12 @@ def llm_compare(test_data: dict, standards_json_dir: str) -> dict:
         return {"status": "NO_MATCH", "message": "No standard JSON files found."}
 
     print(f"  📂 Loaded {len(all_standards)} standard product(s) from {standards_json_dir}")
+
+    # Deterministic name lookup per file — computed once here, used to
+    # OVERRIDE the LLM's self-reported name_match after results come back.
+    # (Assumes ~1 product per standard file, matching extract_standards_json's
+    # output shape — {"<grade_name>": {"parameters": [...]}} per file.)
+    std_name_by_file = {entry["file"]: _extract_standard_name(entry) for entry in all_standards}
 
     # ── 2. Build prompt ───────────────────────────────────────────────────────
     prompt = f"""
@@ -403,12 +547,29 @@ For each property the standard defines:
     for r in results:
         _compute_coverage(r)
 
-    # ── 5. Sort: coverage score desc, name_match as tiebreaker ───────────────
-    results.sort(
-        key=lambda x: (float(x.get("overall_score", 0)), bool(x.get("name_match", False))),
-        reverse=True,
-    )
+    # ── 4b. Overwrite name_match with the deterministic version — do not
+    #        trust the LLM's own name_match/name_match_reason, same reasoning
+    #        as never trusting its arithmetic. PRIMARY signal is the grade
+    #        parsed from the uploaded filename (pdf_filename); falls back to
+    #        the OCR-extracted grade/supply_spec fields if that's not
+    #        available or doesn't follow the naming convention.
+    filename_grade = _extract_grade_from_filename(pdf_filename)
+    for r in results:
+        std_name = std_name_by_file.get(r.get("standard_file", ""), r.get("standard_product", ""))
+        r["name_match"] = _names_match(test_data, std_name, pdf_filename)
+        r["name_match_reason"] = (
+            f"deterministic: filename grade '{filename_grade}'" if filename_grade
+            else f"deterministic: extracted test name(s) {_extract_test_names(test_data, pdf_filename)}"
+        ) + f" vs standard name '{std_name}'"
 
+    # ── 5. Select the best match ──────────────────────────────────────────────
+    # NOT a plain sort-by-score: name_match only wins the top spot when its
+    # OWN score also clears NAME_MATCH_FLOOR. See _select_best() for why a
+    # plain (score, name_match) sort key gets this wrong — it only breaks
+    # ties on EQUAL scores, so a higher-raw-score non-name-match would still
+    # beat a name-matched-but-slightly-lower-score candidate, which is
+    # backwards from what we actually want.
+    results = _select_best(results)
     best = results[0]
     best_score = float(best.get("overall_score", 0))
 

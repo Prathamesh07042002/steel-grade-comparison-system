@@ -1,5 +1,5 @@
 import React from "react";
-import { IconFlask, IconSparkles } from "../icons/Icons";
+import { IconFlask, IconSparkles, IconHome } from "../icons/Icons";
 
 const NAV_ITEMS = [
   { id: "manual", label: "Manual", icon: IconFlask },
@@ -16,7 +16,7 @@ export default function AppShell({ activePage, onNavigate, title, subtitle, acti
           title="Back to home"
           className="w-11 h-11 rounded-xl bg-gradient-to-br from-accent to-accent-strong flex items-center justify-center shadow-md shadow-accent/30 mb-6 hover:brightness-110 active:scale-95 transition-all"
         >
-          <span className="text-white font-extrabold text-lg">S</span>
+          <IconHome className="w-5 h-5 text-white" strokeWidth={2} />
         </button>
 
         <nav className="flex flex-col gap-3">

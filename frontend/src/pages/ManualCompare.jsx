@@ -15,6 +15,7 @@ import {
   IconEyeOff,
   IconCheckCircle,
   IconDownload,
+  IconChevronDown,
 } from "../components/icons/Icons";
 import {
   parseProperties,
@@ -34,6 +35,7 @@ export default function ManualCompare({ initialFile, onFileChange }) {
 
   const [uploadedFile, setUploadedFile] = useState(null);
   const [selectedStandard, setSelectedStandard] = useState("");
+  const [standardDropdownOpen, setStandardDropdownOpen] = useState(true);
   const [selectedDesignation, setSelectedDesignation] = useState(null);
   const [standards, setStandards] = useState([]);
   const [standardDetails, setStandardDetails] = useState(null);
@@ -67,6 +69,7 @@ export default function ManualCompare({ initialFile, onFileChange }) {
     setUploadedFile(file);
     onFileChange?.(file);
     setSelectedStandard("");
+    setStandardDropdownOpen(true);
     setSelectedDesignation(null);
     setStandardDetails(null);
     setError(null);
@@ -90,6 +93,7 @@ export default function ManualCompare({ initialFile, onFileChange }) {
 
   const handleStandardSelect = async (stdName) => {
     setSelectedStandard(stdName);
+    setStandardDropdownOpen(!stdName);
     setSelectedDesignation(null);
     setStandardDetails(null);
     setTestData(null);
@@ -186,6 +190,7 @@ export default function ManualCompare({ initialFile, onFileChange }) {
   const resetAll = () => {
     setUploadedFile(null);
     setSelectedStandard("");
+    setStandardDropdownOpen(true);
     setSelectedDesignation(null);
     setStandardDetails(null);
     setTestData(null);
@@ -266,18 +271,38 @@ export default function ManualCompare({ initialFile, onFileChange }) {
             <label className="text-sm font-semibold text-ink block mb-2">
               Compare against standard
             </label>
-            <select
-              value={selectedStandard}
-              onChange={(e) => handleStandardSelect(e.target.value)}
-              className="w-full border border-border rounded-xl px-4 py-3 text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent"
-            >
-              <option value="">Select a standard...</option>
-              {standards.map((std) => (
-                <option key={std.name} value={std.name}>
-                  {std.name}
-                </option>
-              ))}
-            </select>
+            {selectedStandard && !standardDropdownOpen ? (
+              <button
+                type="button"
+                onClick={() => setStandardDropdownOpen(true)}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-accent/30 bg-accent/10 text-accent font-semibold text-sm text-left"
+              >
+                <span className="flex items-center gap-2 min-w-0">
+                  <IconCheckCircle className="w-5 h-5 shrink-0" strokeWidth={2} />
+                  <span className="truncate">{selectedStandard}</span>
+                </span>
+                <IconChevronDown className="w-5 h-5 shrink-0" strokeWidth={2} />
+              </button>
+            ) : (
+              <div className="border border-border rounded-xl max-h-64 overflow-y-auto divide-y divide-border">
+                {standards.map((std) => {
+                  const isSelected = selectedStandard === std.name;
+                  return (
+                    <button
+                      key={std.name}
+                      type="button"
+                      onClick={() => handleStandardSelect(std.name)}
+                      className={`w-full flex items-center justify-between px-4 py-3 text-sm text-left transition-colors ${
+                        isSelected ? "bg-accent/10 text-accent font-semibold" : "text-ink hover:bg-surface-2"
+                      }`}
+                    >
+                      <span>{std.name}</span>
+                      {isSelected && <IconCheckCircle className="w-5 h-5 shrink-0" strokeWidth={2} />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {standardDetails && selectedDesignation && (

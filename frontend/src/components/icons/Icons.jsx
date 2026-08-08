@@ -207,6 +207,15 @@ export function IconBolt(props) {
   );
 }
 
+export function IconHome(props) {
+  return (
+    <Svg {...props}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 10.5L12 4l8 6.5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 9.5V19a1 1 0 001 1h3v-5h4v5h3a1 1 0 001-1V9.5" />
+    </Svg>
+  );
+}
+
 export function IconShield(props) {
   return (
     <Svg {...props}>

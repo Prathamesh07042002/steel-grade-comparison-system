@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Dict, List, Optional
 import tempfile
@@ -22,7 +22,7 @@ if not api_key:
 else:
     print("✅ MISTRAL_API_KEY loaded successfully")
 
-# Add comparator to path (lives inside backend/, not the repo root)
+# Add backend dir to path so `comparator` resolves unambiguously to backend/comparator
 sys.path.insert(0, backend_dir)
 
 from comparator.src.ocr import extract_text_from_pdf
@@ -30,7 +30,7 @@ from comparator.src.extractor import extract_test_json
 from comparator.src.comparator import direct_compare, llm_compare
 from comparator.src.report import generate_pdf_report
 
-app = FastAPI(title="Steel Grade Comparison API", version="1.0.0")
+app = FastAPI(title="Test Certificate Compliance API", version="1.0.0")
 
 # CORS middleware
 app.add_middleware(
@@ -41,7 +41,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Constants - Path to standards directory (at project root level)
+# Constants - Path to standards directory
 STANDARDS_JSON_DIR = os.path.join(backend_dir, 'comparator', 'data', 'standards_json')
 os.makedirs(STANDARDS_JSON_DIR, exist_ok=True)
 print(f"✅ STANDARDS_JSON_DIR: {STANDARDS_JSON_DIR}")
@@ -82,7 +82,7 @@ async def health_check():
     """Health check endpoint."""
     return {
         "status": "healthy",
-        "service": "Steel Grade Comparison API",
+        "service": "Test Certificate Compliance API",
         "version": "1.0.0"
     }
 
@@ -238,7 +238,7 @@ async def compare_auto(file: UploadFile = File(...)):
         
         # Auto-match
         print(f"  🤖 Running LLM auto-match against standards…")
-        result = llm_compare(test_entry, STANDARDS_JSON_DIR)
+        result = llm_compare(test_entry, STANDARDS_JSON_DIR, pdf_filename=file.filename)
         print(f"  ✅ Auto-match complete")
         
         return {
@@ -270,22 +270,12 @@ class ReportGenerationRequest(BaseModel):
     chem_result: Dict
     mech_result: Dict
     pipeline: str = "Manual"
-    # Pipeline 2 (Auto Match) only — the LLM's best-match fields, so the PDF's
-    # headline verdict/score/reasoning match what's shown on screen instead of
-    # being recomputed independently.
-    test_product: Optional[str] = None
-    verdict: Optional[str] = None
-    overall_score: Optional[float] = None
-    verdict_reason: Optional[str] = None
-    name_match: Optional[bool] = None
-    name_match_reason: Optional[str] = None
-    top_matches: Optional[List[Dict]] = None
-    section_txw: Optional[List[str]] = None
+    section_txw: List[str] = []
 
 
 @app.post("/report/generate-pdf")
 async def generate_report_pdf(request: ReportGenerationRequest):
-    """Generate a PDF report from comparison results and return the file bytes."""
+    """Generate a PDF report from comparison results."""
     try:
         pdf_bytes = generate_pdf_report(
             test_filename=request.test_filename,
@@ -294,21 +284,18 @@ async def generate_report_pdf(request: ReportGenerationRequest):
             chem_result=request.chem_result,
             mech_result=request.mech_result,
             pipeline=request.pipeline,
-            test_product=request.test_product,
-            verdict=request.verdict,
-            overall_score=request.overall_score,
-            verdict_reason=request.verdict_reason,
-            name_match=request.name_match,
-            name_match_reason=request.name_match_reason,
-            top_matches=request.top_matches,
-            section_txw=request.section_txw,
+            section_txw=request.section_txw
         )
 
-        filename = f"report_{request.test_filename}.pdf"
-        return Response(
-            content=pdf_bytes,
+        # Save to temp file for download
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp:
+            tmp.write(pdf_bytes)
+            tmp_path = tmp.name
+
+        return FileResponse(
+            tmp_path,
             media_type="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            filename=f"report_{request.test_filename}.pdf"
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

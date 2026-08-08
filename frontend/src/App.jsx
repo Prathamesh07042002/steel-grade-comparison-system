@@ -7,11 +7,9 @@ import AutoMatch from "./pages/AutoMatch";
 const PAGE_COPY = {
   manual: {
     title: "Manual Grade Comparison",
-    subtitle: "Upload a test certificate, pick a standard, compare properties.",
   },
   auto: {
     title: "Automatic Grade Matching",
-    subtitle: "Upload a test certificate and let AI find the closest standard.",
   },
 };
 

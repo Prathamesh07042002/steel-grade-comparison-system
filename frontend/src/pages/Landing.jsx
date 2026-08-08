@@ -1,5 +1,6 @@
-import Card from "../components/ui/Card";
 import { IconFileText, IconCpu, IconTarget, IconCloudUpload, IconShield, IconBolt } from "../components/icons/Icons";
+import logoSharada from "../assets/logo-sharada.png";
+import logo from "../assets/logo.png";
 
 const FEATURE_STRIP = [
   { icon: IconCpu, title: "AI-Powered Extraction", desc: "AI reads & structures chemical & mechanical data" },
@@ -8,44 +9,86 @@ const FEATURE_STRIP = [
   { icon: IconShield, title: "Trusted & Reliable", desc: "Built for quality teams who demand precision" },
 ];
 
-function ShieldLogo({ size = "w-10 h-10" }) {
-  return (
-    <div className={`relative shrink-0 ${size}`}>
-      <div
-        className="absolute inset-0 bg-gradient-to-br from-accent to-accent-strong shadow-md shadow-accent/30"
-        style={{ clipPath: "polygon(50% 0%, 100% 20%, 100% 58%, 50% 100%, 0% 58%, 0% 20%)" }}
-      />
-      <span className="relative z-10 flex items-center justify-center w-full h-full text-white font-extrabold text-base">
-        S
-      </span>
-    </div>
-  );
-}
-
 export default function Landing({ onNavigate }) {
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    onNavigate("auto", file);
+    onNavigate("manual", file);
   };
 
   return (
     <div className="h-screen w-full overflow-hidden bg-canvas flex flex-col">
-      {/* Header — logo only */}
-      <header className="shrink-0 bg-surface border-b border-border">
-        <div className="max-w-[1600px] mx-auto w-full px-6 md:px-12 py-3.5 flex items-center">
-          <div className="flex items-center gap-2.5">
-            <ShieldLogo size="w-9 h-9" />
-            <div className="leading-tight">
-              <p className="font-extrabold text-ink text-[15px]">Steel Grade</p>
-              <p className="text-muted text-[11px] -mt-0.5">Comparison System</p>
-            </div>
+      {/* Header — app name left, Sharada logo right */}
+      <header className="relative shrink-0 bg-accent/5 overflow-hidden">
+        {/* decorative dot pattern, fading toward the edges */}
+        <div
+          className="absolute inset-0 opacity-30 pointer-events-none"
+          style={{
+            backgroundImage: "radial-gradient(circle, var(--color-accent) 1px, transparent 1px)",
+            backgroundSize: "20px 20px",
+            maskImage: "linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)",
+            WebkitMaskImage: "linear-gradient(to right, transparent 0%, black 20%, black 80%, transparent 100%)",
+          }}
+        />
+        {/* soft glow blobs */}
+        <div className="absolute -top-16 left-1/3 w-64 h-64 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 right-1/4 w-56 h-56 rounded-full bg-accent-strong/10 blur-3xl pointer-events-none" />
+
+        <div className="relative max-w-[1600px] mx-auto w-full px-3 md:px-6 py-3 flex items-center justify-between gap-3">
+          <div className="relative w-[137px] h-16 overflow-hidden shrink-0">
+            <img
+              src={logo}
+              alt="Test Certificate Compliance"
+              className="absolute -top-[20px] -left-[11px] w-[156px] h-[104px] max-w-none"
+            />
           </div>
+          <img
+            src={logoSharada}
+            alt="Sharada"
+            className="h-10 w-auto object-contain shrink-0"
+          />
         </div>
+
+        {/* gradient accent underline */}
+        <div className="h-[3px] w-full bg-gradient-to-r from-transparent via-accent to-transparent" />
       </header>
 
-      <main className="flex-1 min-h-0 relative overflow-y-auto">
-        <div className="absolute inset-0 -z-10 bg-gradient-to-br from-surface-2 via-canvas to-surface-2" />
+      <main className="flex-1 min-h-0 relative isolate overflow-y-auto">
+        <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
+          <div className="absolute inset-0 bg-gradient-to-br from-surface-2 via-canvas to-surface-2" />
+
+          {/* soft orange glow blobs */}
+          <div className="absolute -top-24 -right-24 w-[420px] h-[420px] rounded-full bg-accent/10 blur-3xl" />
+          <div className="absolute -bottom-32 -left-20 w-[380px] h-[380px] rounded-full bg-accent-strong/10 blur-3xl" />
+
+          {/* dot grid */}
+          <div
+            className="absolute inset-0 opacity-40"
+            style={{
+              backgroundImage: "radial-gradient(circle, var(--color-accent) 1px, transparent 1px)",
+              backgroundSize: "26px 26px",
+              maskImage: "radial-gradient(ellipse at center, black 0%, transparent 70%)",
+              WebkitMaskImage: "radial-gradient(ellipse at center, black 0%, transparent 70%)",
+            }}
+          />
+
+          {/* orange wave */}
+          <svg
+            className="absolute bottom-0 left-0 w-full h-32 sm:h-40 text-accent"
+            viewBox="0 0 1600 200"
+            preserveAspectRatio="none"
+            fill="currentColor"
+          >
+            <path
+              opacity="0.08"
+              d="M0,120 C200,180 400,60 600,100 C800,140 1000,40 1200,80 C1400,120 1500,60 1600,90 L1600,200 L0,200 Z"
+            />
+            <path
+              opacity="0.12"
+              d="M0,160 C220,110 420,190 640,150 C860,110 1060,180 1280,140 C1420,116 1520,150 1600,140 L1600,200 L0,200 Z"
+            />
+          </svg>
+        </div>
 
         <div className="max-w-[1600px] mx-auto w-full min-h-full px-6 md:px-12 flex flex-col justify-center gap-6 py-6">
           {/* Hero */}
@@ -104,21 +147,22 @@ export default function Landing({ onNavigate }) {
           </div>
 
           {/* Feature strip */}
-          <Card className="!p-6 sm:!p-7">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-7 sm:gap-5 sm:divide-x sm:divide-border">
-              {FEATURE_STRIP.map((f, i) => (
-                <div key={f.title} className={`flex items-start gap-3.5 ${i > 0 ? "sm:pl-5" : ""}`}>
-                  <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 bg-accent/10 text-accent">
-                    <f.icon className="w-7 h-7" strokeWidth={1.8} />
-                  </div>
-                  <div>
-                    <p className="text-base font-bold text-ink leading-tight">{f.title}</p>
-                    <p className="text-sm text-muted mt-1.5 leading-snug">{f.desc}</p>
-                  </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-5">
+            {FEATURE_STRIP.map((f) => (
+              <div
+                key={f.title}
+                className="flex items-start gap-3.5 rounded-2xl border border-accent/30 bg-accent/10 p-5"
+              >
+                <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 bg-accent text-white shadow-md shadow-accent/30">
+                  <f.icon className="w-7 h-7" strokeWidth={1.8} />
                 </div>
-              ))}
-            </div>
-          </Card>
+                <div>
+                  <p className="text-base font-bold text-ink leading-tight">{f.title}</p>
+                  <p className="text-sm text-muted mt-1.5 leading-snug">{f.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </main>
     </div>
