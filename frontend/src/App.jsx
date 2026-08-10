@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AppShell from "./components/layout/AppShell";
 import Landing from "./pages/Landing";
 import ManualCompare from "./pages/ManualCompare";
 import AutoMatch from "./pages/AutoMatch";
+import { loadGA } from "./ga";
 
 const PAGE_COPY = {
   manual: {
@@ -17,6 +18,10 @@ export default function App() {
   const [activePage, setActivePage] = useState("landing");
   const [headerActions, setHeaderActions] = useState(null);
   const [sharedFile, setSharedFile] = useState(null);
+
+  useEffect(() => {
+    loadGA("Test Certificate Compliance");
+  }, []);
 
   const navigate = (page, file) => {
     setHeaderActions(null);

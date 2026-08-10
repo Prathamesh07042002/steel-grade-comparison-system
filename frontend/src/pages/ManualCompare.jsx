@@ -21,6 +21,7 @@ import {
   parseProperties,
   renderStandardProperties,
 } from "../utils/propertyUtils";
+import { trackEvent } from "../ga";
 
 const API_BASE_URL = "http://localhost:8000";
 
@@ -65,6 +66,11 @@ export default function ManualCompare({ initialFile, onFileChange }) {
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    trackEvent("file_uploaded", {
+      feature: "pipeline_1_manual",
+      app_name: "Test Certificate Compliance",
+    });
 
     setUploadedFile(file);
     onFileChange?.(file);
@@ -123,6 +129,11 @@ export default function ManualCompare({ initialFile, onFileChange }) {
       setLoading(true);
       setError(null);
 
+      trackEvent("comparison_run", {
+        feature: "pipeline_1_manual",
+        app_name: "Test Certificate Compliance",
+      });
+
       const formData = new FormData();
       formData.append("file", uploadedFile);
 
@@ -180,6 +191,11 @@ export default function ManualCompare({ initialFile, onFileChange }) {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+
+      trackEvent("file_downloaded", {
+        feature: "pipeline_1_manual",
+        app_name: "Test Certificate Compliance",
+      });
     } catch (err) {
       setError("Failed to generate PDF report");
     }
