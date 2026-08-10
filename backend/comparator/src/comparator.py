@@ -157,6 +157,208 @@ Return STRICT JSON ONLY — no markdown, no explanation:
     return result
 
 
+# ── Helper: recover property matches the LLM's fuzzy key-matching missed ─────
+# Root cause: the LLM does key-matching (e.g. "YS" == "YS MPa"?) as a single
+# judgment call inside the same pass as standard-selection and range math,
+# with nothing checking it afterward. When that judgment fails, a standard
+# property with a real matching test value lands in "not_in_test" (looks
+# "missing") instead of "matched". This recovers those cases deterministically
+# — normalizes both sides' keys the same way regardless of unit/spacing/
+# min-max-suffix differences, so it doesn't need to know in advance which
+# exact string variant caused the miss.
+
+def _normalize_prop_key(key: str) -> str:
+    """"YS MPa", "YS(MPa)", "ys mpa", "YS min", "YS max" all normalize to "YS"."""
+    core = re.sub(r"%|ppm|mpa|\bmin\b|\bmax\b|\(.*?\)", "", key or "", flags=re.IGNORECASE)
+    return re.sub(r"[^A-Za-z0-9]", "", core).upper()
+
+
+def _parse_range(rv: str):
+    """Parse a standard's constraint string into (lo, hi) floats — either
+    bound may be None (open-ended). Mirrors the prompt's own STEP 2 rules
+    (same formats the LLM is told to expect) so results are consistent with
+    what the LLM would have computed, just deterministic. Returns None if
+    the string doesn't parse as a numeric constraint at all."""
+    if not rv:
+        return None
+    s = str(rv).strip().replace(",", ".")  # comma decimal -> "1,42" -> "1.42"
+    # Drop a trailing period after a word ("max." / "min." — common cert
+    # abbreviation style) without touching a decimal point after a digit
+    # ("0.045" stays untouched since that "." follows a digit, not a letter).
+    s = re.sub(r"(?<=[A-Za-z])\.\s*$", "", s)
+
+    m = re.match(r"^<=\s*([\d.]+)$", s) or re.match(r"^([\d.]+)\s*max$", s, re.IGNORECASE)
+    if m:
+        return (None, float(m.group(1)))
+
+    m = re.match(r"^>=\s*([\d.]+)$", s) or re.match(r"^([\d.]+)\s*min$", s, re.IGNORECASE)
+    if m:
+        return (float(m.group(1)), None)
+
+    m = re.match(r"^([\d.]+)\s*-\s*([\d.]+)$", s)
+    if m:
+        return (float(m.group(1)), float(m.group(2)))
+
+    m = re.match(r"^([\d.]+)$", s)
+    if m:
+        v = float(m.group(1))
+        return (v * 0.95, v * 1.05)  # plain number -> ±5% tolerance
+
+    return None  # unparseable — leave undetermined rather than guess
+
+
+def _value_in_range(test_value, rv: str):
+    """True/False if the test value's numeric comparison against rv is
+    determinable, else None (unparseable test value or rv — same "leave
+    undetermined" leniency the prompt already applies to OCR-suspect
+    values, so this never falsely fails something it can't actually read)."""
+    try:
+        tv = float(str(test_value).strip().replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+    rng = _parse_range(rv)
+    if rng is None:
+        return None
+    lo, hi = rng
+    if lo is not None and tv < lo:
+        return False
+    if hi is not None and tv > hi:
+        return False
+    return True
+
+
+def _get_std_parameters(product: dict) -> list:
+    """Pull the [{"element":..., "rv":...}, ...] list out of a loaded
+    standard product dict, whatever shape it's in. Handles both a direct
+    {"parameters": [...]} and extract_standards_json's actual output shape,
+    {"<grade_name>": {"parameters": [...]}} (grade name as the only key)."""
+    if not isinstance(product, dict):
+        return []
+    if isinstance(product.get("parameters"), list):
+        return product["parameters"]
+    for v in product.values():
+        if isinstance(v, dict) and isinstance(v.get("parameters"), list):
+            return v["parameters"]
+    return []
+
+
+def _split_composite_key(std_key: str):
+    """If std_key is a SUM of element symbols joined by "+" (e.g. "Nb+V+Ti%",
+    "Nb+V+Ti"), return the list of individual element tokens ["Nb","V","Ti"].
+    Otherwise return None. This is for standards that define a property as a
+    combined limit on several elements together, not any single one of them —
+    the test data never has one field for this, only the individual elements,
+    so it has to be computed by adding them up."""
+    core = re.sub(r"%\s*$", "", (std_key or "").strip())
+    parts = [p.strip() for p in core.split("+") if p.strip()]
+    if len(parts) < 2:
+        return None
+    if all(re.match(r"^[A-Za-z0-9]+$", p) for p in parts):
+        return parts
+    return None
+
+
+def _recompute_matched_within_range(result: dict) -> None:
+    """For EVERY already-matched property (not just recovered ones), redo
+    the PASS/FAIL check deterministically from the stored test_value and
+    standard_value, and override the LLM's own verdict when we get a
+    confident answer. This is the same "never trust the LLM's arithmetic"
+    principle already applied to the overall score (_compute_coverage) —
+    just applied per-property too, since a single wrong 0.015-vs-0.030-max
+    judgment is arithmetic, not a naming problem, and can happen to any
+    property, not only the one that happened to be reported. If our parser
+    can't confidently read the format, the LLM's original verdict is left
+    as-is rather than replaced with an "undetermined" that might be a
+    regression on a case our parser doesn't cover yet."""
+    for block_name in ("chemical_properties", "mechanical_properties"):
+        block = result.get(block_name)
+        if not isinstance(block, dict):
+            continue
+        for entry in block.get("matched", {}).values():
+            if not isinstance(entry, dict):
+                continue
+            determined = _value_in_range(entry.get("test_value"), entry.get("standard_value"))
+            if determined is not None:
+                entry["within_range"] = determined
+
+
+def _recover_missed_property_matches(result: dict, test_flat: dict, std_params: list) -> None:
+    """Mutates result in place. For every standard property the LLM put in
+    not_in_test, re-check with normalized key matching against the actual
+    extracted test properties. If a match is found, move it into matched
+    with a deterministically computed within_range — never trust the LLM's
+    original "missing" classification as final, same principle as never
+    trusting its arithmetic.
+
+    Also handles COMPOSITE properties — a standard limit written as a sum of
+    elements (e.g. "Nb+V+Ti% max 0.200") that has no single matching test
+    field, because the test data only has the individual elements. Sums the
+    matching individual values and compares the total against the limit."""
+    std_by_norm = {}
+    for p in std_params:
+        norm = _normalize_prop_key(p.get("element", ""))
+        if norm and norm not in std_by_norm:
+            std_by_norm[norm] = (p.get("element", ""), p.get("rv", ""))
+
+    test_by_norm = {}
+    for k, v in test_flat.items():
+        norm = _normalize_prop_key(k)
+        if norm and norm not in test_by_norm:
+            test_by_norm[norm] = (k, v)
+
+    for block_name in ("chemical_properties", "mechanical_properties"):
+        block = result.get(block_name)
+        if not isinstance(block, dict):
+            continue
+        not_in_test = block.get("not_in_test", {})
+        matched = block.setdefault("matched", {})
+        recovered = []
+        for std_key, std_val in list(not_in_test.items()):
+            norm = _normalize_prop_key(std_key)
+
+            # Case 1: simple key-naming mismatch (e.g. "YS" vs "YS MPa")
+            if norm in test_by_norm:
+                test_key, test_val = test_by_norm[norm]
+                matched[std_key] = {
+                    "test_value": test_val,
+                    "standard_value": std_val,
+                    "within_range": _value_in_range(test_val, std_val),
+                    "note": "",
+                }
+                recovered.append(std_key)
+                continue
+
+            # Case 2: composite property (e.g. "Nb+V+Ti%") — sum the parts
+            parts = _split_composite_key(std_key)
+            if parts:
+                total = 0.0
+                contributing = []
+                all_found = True
+                for part in parts:
+                    part_norm = _normalize_prop_key(part)
+                    if part_norm not in test_by_norm:
+                        all_found = False
+                        break
+                    part_key, part_val = test_by_norm[part_norm]
+                    try:
+                        total += float(str(part_val).strip().replace(",", "."))
+                        contributing.append(f"{part_key}={part_val}")
+                    except (TypeError, ValueError):
+                        all_found = False
+                        break
+                if all_found:
+                    matched[std_key] = {
+                        "test_value": f"{round(total, 4)} ({' + '.join(contributing)})",
+                        "standard_value": std_val,
+                        "within_range": _value_in_range(total, std_val),
+                        "note": "",
+                    }
+                    recovered.append(std_key)
+
+        for k in recovered:
+            del not_in_test[k]
+
+
 # ── Helper: recount from structured LLM data ─────────────────────────────────
 
 def _recount_from_data(props: dict) -> tuple[int, int]:
@@ -245,6 +447,23 @@ def _normalize_name(s: str) -> str:
     return re.sub(r"[^A-Za-z0-9]", "", s or "").upper()
 
 
+# Grade names that are the SAME grade in reality but get written differently
+# across your files — e.g. some certs/filenames use "E-46", others use
+# "BSK-46", for what is actually the same product. Plain substring/equality
+# matching can never catch this (neither name contains the other), so it
+# needs an explicit alias list. Each set is a group of interchangeable
+# normalized names — add more groups here as you find more of these; each
+# group is independent, so adding one never affects any other grade.
+GRADE_ALIAS_GROUPS = [
+    {"E46", "BSK46"},
+]
+
+
+def _names_are_aliases(a_norm: str, b_norm: str) -> bool:
+    """True if a_norm and b_norm are both in the same known alias group."""
+    return any(a_norm in group and b_norm in group for group in GRADE_ALIAS_GROUPS)
+
+
 def _extract_grade_from_filename(pdf_filename: str) -> str:
     """Pull the grade token straight out of the uploaded PDF's filename.
 
@@ -298,7 +517,8 @@ def _extract_standard_name(entry: dict) -> str:
 
 def _names_match(test_data: dict, std_name: str, pdf_filename: str = "") -> bool:
     """True if any test-side name string and the standard's name are equal,
-    or one contains the other, after normalization. Containment (not just
+    contain each other, or are known aliases of the same grade (see
+    GRADE_ALIAS_GROUPS), after normalization. Containment (not just
     equality) matters here — e.g. test grade "E-46(Thin)" vs standard name
     "E46" should still count as the same grade family."""
     std_norm = _normalize_name(std_name)
@@ -306,7 +526,11 @@ def _names_match(test_data: dict, std_name: str, pdf_filename: str = "") -> bool
         return False
     for test_name in _extract_test_names(test_data, pdf_filename):
         test_norm = _normalize_name(test_name)
-        if test_norm and (test_norm == std_norm or test_norm in std_norm or std_norm in test_norm):
+        if not test_norm:
+            continue
+        if test_norm == std_norm or test_norm in std_norm or std_norm in test_norm:
+            return True
+        if _names_are_aliases(test_norm, std_norm):
             return True
     return False
 
@@ -542,6 +766,20 @@ For each property the standard defines:
     results = parsed.get("results", [])
     if not results:
         return {"status": "NO_MATCH", "message": "No results returned by LLM."}
+
+    # ── 3b. Recover properties the LLM's fuzzy key-matching missed ────────────
+    # Must run BEFORE coverage is computed, so recovered matches count toward
+    # the score — not just cosmetically move between buckets after scoring.
+    test_flat = {}
+    test_flat.update(test_data.get("chemical_properties", {}) or {})
+    test_flat.update(test_data.get("mechanical_properties", {}) or {})
+    std_params_by_file = {
+        entry["file"]: _get_std_parameters(entry["product"]) for entry in all_standards
+    }
+    for r in results:
+        std_params = std_params_by_file.get(r.get("standard_file", ""), [])
+        _recover_missed_property_matches(r, test_flat, std_params)
+        _recompute_matched_within_range(r)
 
     # ── 4. Recompute scores from structured data (never trust LLM arithmetic) ─
     for r in results:
