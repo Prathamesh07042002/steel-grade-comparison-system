@@ -138,8 +138,8 @@ def generate_pdf_report(
     info_row("Test File",     test_filename)
     info_row("Supply Spec",   selected_spec)
     info_row("Designation",   selected_desig)
-    if pipeline == "Manual":
-        info_row("Section (TxW)", ", ".join(section_txw) if section_txw else "-")
+    
+    info_row("Section (TxW)", ", ".join(section_txw) if section_txw else "-")
     info_row("Pipeline",      pipeline)
     info_row("Properties OK", f"{pass_count} / {total}")
     pdf.ln(6)

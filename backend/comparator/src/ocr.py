@@ -34,7 +34,7 @@ def _get_client() -> Mistral:
     return _client
 
 
-def _pdf_to_images(pdf_path: str, dpi: int = 200):
+def _pdf_to_images(pdf_path: str, dpi: int = 300):
     """Rasterize every page of a PDF into PIL Images using PyMuPDF."""
     doc = fitz.open(pdf_path)
     zoom = dpi / 72
@@ -69,7 +69,7 @@ def _image_to_data_url(image) -> str:
     return f"data:image/jpeg;base64,{encoded}"
 
 
-def _get_corrected_page_data_url(pdf_path: str, page_index: int = 0, dpi: int = 200) -> str:
+def _get_corrected_page_data_url(pdf_path: str, page_index: int = 0, dpi: int = 300) -> str:
     """Rasterize + auto-correct rotation for one page, return as a data URL."""
     print(f"  📂 Reading: {Path(pdf_path).name}")
     print("  🖼️  Rasterizing page for orientation check…")
@@ -143,6 +143,23 @@ def extract_text_from_pdf(pdf_path: str, page_index: int = 0) -> str:
     )
     print(f"  📑 Pages extracted: {len(response.pages)}")
     return "\n".join(p.markdown or "" for p in response.pages)
+
+def get_raw_table_html(pdf_path: str, page_index: int = 0) -> str:
+    """
+    Get raw OCR table HTML for one page — no schema/annotation involved.
+    Used as a fallback to pull section_txw via regex when the annotation
+    step misses it despite the data being present in the OCR'd HTML.
+    """
+    data_url = _get_corrected_page_data_url(pdf_path, page_index=page_index)
+    client = _get_client()
+    response = client.ocr.process(
+        model="mistral-ocr-latest",
+        document=ImageURLChunk(image_url=data_url),
+        table_format="html",
+    )
+    page = response.pages[page_index]
+    tables = page.tables or []
+    return "\n".join(t.content for t in tables)
 
 
 # ── CLI test ─────────────────────────────────────────────────────────────────

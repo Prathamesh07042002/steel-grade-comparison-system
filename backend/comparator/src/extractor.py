@@ -13,7 +13,8 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-from .ocr import extract_document_annotation
+import re
+from .ocr import extract_document_annotation, get_raw_table_html
 
 # ── Shared building blocks ───────────────────────────────────────────────────
 
@@ -114,6 +115,26 @@ class TestCertificate(BaseModel):
         default_factory=list, description="Actual measured mechanical test values (YS MPa, UTS MPa, EL %, BH, ...)"
     )
 
+def _extract_txw_from_html(html: str) -> list:
+    """Pull TxW values out of raw HTML — two known formats."""
+    results = []
+
+    # Format A: "Section(TxW): 0.960x1250.000mm"
+    pattern_a = r'Section\s*\(\s*TxW\s*\)\s*:\s*([0-9.]+\s*[xX]\s*[0-9.]+(?:\.\d+)?\s*mm)'
+    for m in re.finditer(pattern_a, html, flags=re.IGNORECASE):
+        val = re.sub(r'\s+', '', m.group(1)).strip()
+        if val and val not in results:
+            results.append(val)
+
+    # Format B: "( 0.800 * 1250 * )" — thickness * width * (length, blank for coils)
+    pattern_b = r'\(\s*([0-9.]+)\s*\*\s*([0-9.]+)\s*\*[^)]*\)'
+    for m in re.finditer(pattern_b, html):
+        thickness, width = m.group(1), m.group(2)
+        val = f"{thickness}x{width}.000mm"
+        if val not in results:
+            results.append(val)
+
+    return results
 
 def extract_test_json(pdf_path: str, pdf_name: str = "") -> dict:
     """
@@ -163,12 +184,20 @@ CRITICAL — number formatting:
     print(f"  🤖 Extracting test values from: {pdf_name}…")
     result = extract_document_annotation(pdf_path, TestCertificate, document_annotation_prompt=prompt)
 
+    section_txw = result.section_txw
+    if not section_txw:
+        try:
+            raw_html = get_raw_table_html(pdf_path)
+            section_txw = _extract_txw_from_html(raw_html)
+        except Exception:
+            pass
+
     return {
         "grade": result.grade,
         "supply_spec": result.supply_spec,
         "drawing_designation": result.drawing_designation,
         "steel_grade_form": result.steel_grade_form,
-        "section_txw": result.section_txw,
+        "section_txw": section_txw,
         "chemical_properties": {p.name: p.value for p in result.chemical_properties},
         "mechanical_properties": {p.name: p.value for p in result.mechanical_properties},
     }
