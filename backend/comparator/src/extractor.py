@@ -134,6 +134,14 @@ def _extract_txw_from_html(html: str) -> list:
         if val not in results:
             results.append(val)
 
+     # Format C: "<td>3.00 x 1250 x C</td>" — thickness x width x C (C = continuous, coils)
+    pattern_c = r'<td>\s*([0-9]+(?:\.[0-9]+)?)\s*x\s*([0-9]+(?:\.[0-9]+)?)\s*x\s*[A-Za-z]+\s*</td>'
+    for m in re.finditer(pattern_c, html, flags=re.IGNORECASE):
+        thickness, width = m.group(1), m.group(2)
+        val = f"{thickness}x{width}mm"
+        if val not in results:
+            results.append(val)
+
     return results
 
 def extract_test_json(pdf_path: str, pdf_name: str = "") -> dict:
