@@ -26,7 +26,17 @@ jobs:
           script: |
             set -e
             cd steel-grade-comparison-system/
-            git pull origin ui
+
+            # Mirror the branch instead of `git pull`. The host checkout is a
+            # deploy target, never a place to author commits, so there is
+            # nothing to reconcile. A plain pull dies with "Need to specify how
+            # to reconcile divergent branches" (exit 128) the moment the host
+            # and origin/ui diverge — e.g. after a force-push — and `set -e`
+            # then aborts the deploy. reset --hard discards local *tracked*
+            # changes on the host by design; untracked files (.env, volumes)
+            # are left alone, so no `git clean` here.
+            git fetch --prune origin ui
+            git reset --hard origin/ui
 
             # CI owns .env, so a fresh host provisions itself and rotating the
             # key is a GitHub settings change rather than an SSH session.
