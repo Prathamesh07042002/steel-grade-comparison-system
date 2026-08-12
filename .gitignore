@@ -5,11 +5,27 @@ venv/
 __pycache__/
 *.pyc
 
-# Skip your secret keys and passwords
-# .env
+# Skip your secret keys and passwords.
+# These were previously committed (the comment below used to be uncommented,
+# which is why four .env files carrying a real MISTRAL_API_KEY are in git).
+# Ignoring them here does NOT untrack them — see DEPLOYMENT.md "Before the
+# first deploy" for the one-time `git rm --cached` + key rotation, which the
+# deploy loop depends on: CI rewrites .env on the host, and a tracked .env
+# makes the next `git pull` abort on local modifications.
+.env
+**/.env
+.env.local
+!.env.example
 
 # Skip output/generated data you don't need
 data/output/
 data/comparison/
 data/to check/
 data/standards/
+
+# Build artifacts (the image builds these itself in Dockerfile.web)
+frontend/dist/
+node_modules/
+# The built SPA, copied here from frontend/dist by the Docker build. Committing
+# it would serve a stale bundle to anyone running uvicorn outside the image.
+backend/static/

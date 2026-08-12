@@ -1,0 +1,78 @@
+# Steel Grade Comparison — React SPA + FastAPI in a single container,
+# served under the /tc_compliance subpath on the shared domain.
+#
+# NAMED Dockerfile.web ON PURPOSE. The legacy Streamlit service in
+# docker-compose.yml declares no `dockerfile:` key, so compose resolves it to
+# the default "Dockerfile" (capital D). This repo's Streamlit build file is
+# lowercase "dockerfile"; adding a capital-D "Dockerfile" here would silently
+# become the legacy service's build file too, and the rollback container would
+# come up running FastAPI instead of Streamlit. Keeping a distinct name means
+# neither service can be confused for the other.
+#
+# The legacy Streamlit app (dockerfile, entrypoint.sh, requirements.txt, app.py)
+# is untouched and still builds/runs exactly as before.
+
+# ---------- Stage 1: build the SPA ----------
+FROM node:20-slim AS frontend-build
+WORKDIR /src/frontend
+
+# package-lock.json is tracked, so `npm ci` is reproducible.
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+COPY frontend/ ./
+# vite.config.js sets base=/tc_compliance/ for `build` only, so every asset URL
+# in the emitted index.html is prefixed. Tailwind v4 runs through
+# @tailwindcss/vite during this build — there is no separate CSS step.
+RUN npm run build
+
+
+# ---------- Stage 2: FastAPI serving the API + the built SPA ----------
+FROM python:3.11-slim AS backend
+WORKDIR /app
+
+# tesseract is a hard runtime requirement, not an optional extra:
+# comparator/src/ocr.py calls pytesseract.image_to_osd() to detect and correct
+# page rotation before OCR. pytesseract is only a wrapper — without the binary
+# every call raises TesseractNotFoundError.
+#   tesseract-ocr-osd ships osd.traineddata, which image_to_osd specifically
+#   needs; the base tesseract-ocr package alone does not include it.
+# libgl1/libglib2.0-0 are Pillow/PyMuPDF image-handling shared libs that
+# python:*-slim omits.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        tesseract-ocr \
+        tesseract-ocr-eng \
+        tesseract-ocr-osd \
+        libgl1 \
+        libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Backend deps only — deliberately NOT the repo-root requirements.txt, which
+# belongs to the legacy Streamlit app and would pull streamlit into this image.
+COPY backend/requirements.txt backend/requirements.txt
+RUN pip install --no-cache-dir -r backend/requirements.txt
+
+# The FastAPI app itself.
+COPY backend/app backend/app
+
+# The analysis engine. Copied per-directory rather than as `backend/comparator`
+# wholesale so the 11 MB of sample PDFs under comparator/data/to check/ stays
+# out of the image — those are dev fixtures, never read at runtime.
+COPY backend/comparator/src backend/comparator/src
+# standards_json IS read at request time (STANDARDS_JSON_DIR in app/main.py
+# enumerates it for /api/standards/list), so it must be in the image.
+COPY backend/comparator/data/standards_json backend/comparator/data/standards_json
+
+# The built SPA. app/main.py looks for it at backend/static.
+COPY --from=frontend-build /src/frontend/dist backend/static
+
+EXPOSE 8000
+
+# --root-path makes FastAPI aware of the prefix nginx strips, so generated URLs
+# (/openapi.json's `servers`, docs) come out as /tc_compliance/... instead of /.
+# --proxy-headers + --forwarded-allow-ips lets it trust X-Forwarded-* from nginx.
+# Single worker: no --workers. See DEPLOYMENT.md.
+CMD ["uvicorn", "backend.app.main:app", \
+     "--host", "0.0.0.0", "--port", "8000", \
+     "--proxy-headers", "--forwarded-allow-ips", "*", \
+     "--root-path", "/tc_compliance"]

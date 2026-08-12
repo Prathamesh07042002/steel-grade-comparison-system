@@ -16,8 +16,10 @@ import {
   IconRefresh,
 } from "../components/icons/Icons";
 import { trackEvent } from "../ga";
-
-const API_BASE_URL = "http://localhost:8000";
+// Relative, subpath-aware base ("/api" in dev, "/tc_compliance/api" in a
+// production build). The old hardcoded "http://localhost:8000" only ever
+// worked on a developer machine.
+import { API_BASE as API_BASE_URL } from "../api";
 
 const STEPS = [
   { id: "upload", title: "Upload Certificate", subtitle: "Material Test Certificate", icon: <IconUpload className="w-6 h-6" /> },

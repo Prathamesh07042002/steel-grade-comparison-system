@@ -3,7 +3,7 @@ name: Deploy to EC2
 on:
   push:
     branches:
-      - main
+      - ui
 
 jobs:
   deploy:
@@ -19,7 +19,33 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          # Passed as env vars rather than interpolated into `script` below:
+          # ssh-action echoes the script into the log inside a ======CMD======
+          # block, which would print the key in plaintext.
+          envs: MISTRAL_API_KEY
           script: |
+            set -e
             cd steel-grade-comparison-system/
-            git pull origin main
-            sudo docker-compose up -d --build
+            git pull origin ui
+
+            # CI owns .env, so a fresh host provisions itself and rotating the
+            # key is a GitHub settings change rather than an SSH session.
+            # Guarded on the secret being non-empty: a missing/renamed secret
+            # must not clobber a working .env with a blank value. compose
+            # aborts with "env file ... not found" if the file is absent
+            # entirely, hence the touch fallback.
+            if [ -n "$MISTRAL_API_KEY" ]; then
+              umask 077
+              printf 'MISTRAL_API_KEY=%s\n' "$MISTRAL_API_KEY" > .env
+              echo "wrote .env from repo secret"
+            else
+              echo "WARNING: MISTRAL_API_KEY secret not set — leaving any existing .env alone"
+              [ -f .env ] || touch .env
+            fi
+
+            # --force-recreate so a rebuilt image is actually picked up: the SPA
+            # is baked in at build time, and plain `up -d` can leave the old
+            # container running when only the image changed.
+            sudo docker-compose up -d --build --force-recreate
+        env:
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}

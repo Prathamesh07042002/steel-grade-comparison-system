@@ -1,0 +1,29 @@
+# Backend (FastAPI) runtime deps for the React + FastAPI container.
+#
+# The repo-root requirements.txt belongs to the legacy Streamlit app and is
+# deliberately left alone — it pulls in streamlit, which this image must not
+# carry. Versions that overlap are pinned to the same values as that file so
+# the two containers behave identically.
+#
+# Every pin below is imported somewhere under backend/:
+#   fastapi, uvicorn, python-multipart  -> the ASGI app + multipart file upload
+#   pydantic                            -> request/response models in app/main.py
+#   python-dotenv                       -> load_dotenv() in app/main.py, ocr.py, comparator.py
+#   requests                            -> comparator.py calls the Mistral chat API directly
+#   mistralai                           -> ocr.py (mistral-ocr-latest document annotation)
+#   pymupdf                             -> ocr.py `import fitz` page rasterisation
+#   pytesseract + pillow                -> ocr.py orientation detection (needs the
+#                                          tesseract-ocr binary; see Dockerfile.web)
+#   fpdf2                               -> report.py PDF report generation
+
+fastapi==0.141.1
+uvicorn[standard]==0.52.1
+python-multipart==0.0.32
+pydantic==2.13.4
+python-dotenv==1.2.2
+requests==2.34.0
+mistralai==2.9.1
+pymupdf==1.28.0
+pytesseract==0.3.13
+pillow==12.3.0
+fpdf2==2.8.7

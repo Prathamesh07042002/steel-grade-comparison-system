@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <!-- %BASE_URL% is substituted with the Vite `base`, so this resolves to
+         /tc_compliance/grade.png in a production build and /grade.png in dev.
+         A bare "/grade.png" would escape the subpath and 404 on the shared
+         domain. (It previously pointed at /vite.svg, which does not exist.) -->
+    <!-- <link rel="icon" type="image/png" href="%BASE_URL%grade.png" /> -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Steel Grade Comparison System</title>
 </head>

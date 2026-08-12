@@ -1,2 +1,39 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+*.pyc
+*.pyo
+
+# Version control and local tooling
+.git
+.github
+.gitignore
+venv/
+.venv/
+
+# Secrets. NOTE: this exclusion is load-bearing, not just hygiene.
+# backend/app/main.py calls load_dotenv(backend/.env) at import, and
+# comparator/src/{ocr,comparator}.py call a bare load_dotenv() that walks up
+# from the cwd. A .env baked into the image would be picked up at runtime and
+# shadow whatever docker-compose injects, so a rotated key would appear not to
+# take effect. Every .env at every depth stays out.
+.env
+**/.env
+.env.*
+!.env.example
+
+# Node build inputs/outputs — the image builds the SPA itself in stage 1.
+node_modules/
+**/node_modules/
+frontend/dist/
+
+# Dev fixtures: ~11 MB of sample test certificates, never read at runtime.
+backend/comparator/data/to check/
+backend/comparator/data/output/
+backend/comparator/data/comparison/
+extracted_data.json
+
+# Docs — not needed at runtime
+*.md
+**/*.md
+Docker_Ngnix_Proxy.txt
+reference/

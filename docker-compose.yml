@@ -3,9 +3,36 @@ services:
   tc_compliance_testing:
     build:
       context: .
+      # Pinned explicitly. Without this key compose resolves the default
+      # "Dockerfile" (capital D), and the legacy build file in this repo is
+      # lowercase "dockerfile" — so adding any capital-D Dockerfile would
+      # silently hijack this service. This service must keep building the
+      # Streamlit app so it stays available as a rollback target.
+      dockerfile: dockerfile
     container_name: tc_compliance_dashboard
     image: tc_compliance_dashboard
     ports:
       - '9269:8510'
-   
+
+    restart: always
+
+  # React SPA + FastAPI in one container, served at /tc_compliance on the
+  # shared domain. Runs alongside the Streamlit service above on a different
+  # host port so either can serve traffic during cutover — nginx decides which
+  # one the subpath points at.
+  tc_compliance_web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: tc_compliance_web
+    image: tc_compliance_web
+    ports:
+      # 9269 is the legacy Streamlit container; 9271-9274 are other usecases on
+      # this host (invoice_analyser, stock_optimiser, quote_vault,
+      # pcp_wi_generator). nginx proxies to 127.0.0.1:9275.
+      - '9275:8000'
+    # MISTRAL_API_KEY lives here. The file is git-ignored and written on the
+    # host by the deploy workflow from the repo secret. compose refuses to
+    # start if it is missing, so `touch .env` is the minimum.
+    env_file: .env
     restart: always

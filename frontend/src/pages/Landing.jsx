@@ -139,7 +139,7 @@ export default function Landing({ onNavigate }) {
               />
 
               <img
-                src="/grade.png"
+                src={`${import.meta.env.BASE_URL}grade.png`}
                 alt="Manual Compare Result and Auto Match top 5 matches preview"
                 className="w-full h-auto rounded-2xl shadow-lg"
               />
