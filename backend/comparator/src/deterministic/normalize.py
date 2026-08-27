@@ -22,7 +22,8 @@ PROPERTY_ALIAS_GROUPS = [
 # comparator doesn't depend on either of those.
 MECH_KEYWORDS = {
     "ys", "uts", "el", "bh", "hardness", "impact",
-    "r-bar", "n-value", "mpa", "hv", "hrc",
+    "r-bar", "n-value", "mpa", "hv", "hrc", "hrb",
+    "ra", "er", "bend",
 }
 
 

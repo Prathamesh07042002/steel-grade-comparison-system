@@ -20,7 +20,6 @@ import {
 import {
   parseProperties,
   renderStandardProperties,
-  splitResultByType,
 } from "../utils/propertyUtils";
 import { trackEvent } from "../ga";
 // Relative, subpath-aware base ("/api" in dev, "/tc_compliance/api" in a
@@ -158,20 +157,22 @@ export default function ManualCompare({
       const stdData = standardDetails[selectedDesignation];
       const stdProps = parseProperties(stdData?.parameters || []);
 
-      const compareRes = await axios.post(`${API_BASE_URL}/compare/direct`, {
-        test_props: {
-          ...(testEntry.chemical_properties || {}),
-          ...(testEntry.mechanical_properties || {}),
-        },
-        std_props: {
-          ...(stdProps.chemical_properties || {}),
-          ...(stdProps.mechanical_properties || {}),
-        },
-      });
+      // Compare chemical against chemical and mechanical against mechanical
+      // separately, using the certificate's own section split (testEntry.*)
+      // instead of merging everything and re-guessing the split afterwards.
+      const [chemRes, mechRes] = await Promise.all([
+        axios.post(`${API_BASE_URL}/compare/direct`, {
+          test_props: testEntry.chemical_properties || {},
+          std_props: stdProps.chemical_properties || {},
+        }),
+        axios.post(`${API_BASE_URL}/compare/direct`, {
+          test_props: testEntry.mechanical_properties || {},
+          std_props: stdProps.mechanical_properties || {},
+        }),
+      ]);
 
-      const { chemical, mechanical } = splitResultByType(compareRes.data.result);
-      setChemResult(chemical);
-      setMechResult(mechanical);
+      setChemResult(chemRes.data.result);
+      setMechResult(mechRes.data.result);
       setCurrentStep(2);
     } catch (err) {
       console.error("Comparison failed:", err);

@@ -363,7 +363,8 @@ async def parse_properties(params: str = ""):
         
         MECH_KEYWORDS = {
             "ys", "uts", "el", "bh", "hardness", "impact",
-            "r-bar", "n-value", "mpa", "hv", "hrc"
+            "r-bar", "n-value", "mpa", "hv", "hrc", "hrb",
+            "ra", "er", "bend"
         }
         
         chem, mech = {}, {}

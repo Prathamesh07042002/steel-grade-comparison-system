@@ -111,10 +111,22 @@ class TestCertificate(BaseModel):
         ),
     )
     chemical_properties: List[PropertyValue] = Field(
-        default_factory=list, description="Actual measured chemical test values (C%, Mn%, Si%, P%, S%, Al%, ...)"
+        default_factory=list,
+        description=(
+            "Every property listed under the certificate's own chemical section — however it is "
+            "labeled (e.g. 'Chemical Analysis', 'Chemical Composition', 'Ladle Analysis'). Classify "
+            "purely by which section of the certificate the row physically appears in, not by "
+            "guessing from the property name — e.g. C%, Mn%, Si%, P%, S%, Al%, ..."
+        ),
     )
     mechanical_properties: List[PropertyValue] = Field(
-        default_factory=list, description="Actual measured mechanical test values (YS MPa, UTS MPa, EL %, BH, ...)"
+        default_factory=list,
+        description=(
+            "Every property listed under the certificate's own mechanical/physical section — however "
+            "it is labeled (e.g. 'Mechanical Analysis', 'Mechanical Properties', 'Physical Properties'). "
+            "Classify purely by which section of the certificate the row physically appears in, not by "
+            "guessing from the property name — e.g. YS MPa, UTS MPa, EL %, BH, HRB, RA, ER, BEND, ..."
+        ),
     )
 
 
