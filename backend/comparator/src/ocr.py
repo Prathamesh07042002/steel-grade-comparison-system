@@ -48,18 +48,35 @@ def _pdf_to_images(pdf_path: str, dpi: int = 300):
     return images
 
 
-def _correct_page_orientation(page_image):
-    """Detect rotation with Tesseract OSD and rotate the page upright if needed."""
+def _detect_rotation(image) -> int:
+    return pytesseract.image_to_osd(image, output_type=pytesseract.Output.DICT).get("rotate", 0)
+
+
+def _correct_page_orientation(page_image, osd_probe_px: int = 1000):
+    """Detect rotation with Tesseract OSD and rotate the page upright if needed.
+
+    OSD is run on a downscaled probe copy — it only needs to see enough text to judge
+    orientation, and full-resolution OSD takes several seconds longer for no benefit.
+    Falls back to full resolution if the shrunken probe has too little detail to read.
+    """
+    scale = osd_probe_px / max(page_image.size)
+    probe = page_image.resize(
+        (max(1, int(page_image.width * scale)), max(1, int(page_image.height * scale)))
+    ) if scale < 1 else page_image
+
     try:
-        osd = pytesseract.image_to_osd(page_image, output_type=pytesseract.Output.DICT)
-        rotate_needed = osd.get("rotate", 0)
-        if rotate_needed:
-            print(f"    ↻ Detected {rotate_needed}° rotation — correcting…")
-            page_image = page_image.rotate(-rotate_needed, expand=True)
-        return page_image
-    except Exception as e:
-        print(f"    ⚠️  Orientation detection skipped ({e}) — using page as-is")
-        return page_image
+        rotate_needed = _detect_rotation(probe)
+    except Exception:
+        try:
+            rotate_needed = _detect_rotation(page_image)
+        except Exception as e:
+            print(f"    ⚠️  Orientation detection skipped ({e}) — using page as-is")
+            return page_image
+
+    if rotate_needed:
+        print(f"    ↻ Detected {rotate_needed}° rotation — correcting…")
+        page_image = page_image.rotate(-rotate_needed, expand=True)
+    return page_image
 
 
 def _image_to_data_url(image) -> str:
@@ -78,18 +95,19 @@ def _get_corrected_page_data_url(pdf_path: str, page_index: int = 0, dpi: int = 
     return _image_to_data_url(corrected_image)
 
 
-def extract_document_annotation(
+def call_annotation_api(
     pdf_path: str,
     response_model: Type[T],
     document_annotation_prompt: Optional[str] = None,
     max_retries: int = 5,
     page_index: int = 0,
-) -> T:
+):
     """
     Single-call OCR + structured extraction, on a rotation-corrected page.
-
-    `response_model` is a Pydantic model describing exactly the JSON shape
-    you want back. Mistral guarantees the output conforms to it.
+    Returns the raw Mistral response — `response.document_annotation` holds the
+    schema-validated JSON, `response.pages[i].tables` holds the OCR'd table HTML,
+    both from this one call, so callers needing extra text (e.g. a regex rescue
+    for a field the schema pass missed) don't need a second API round trip.
     """
     data_url = _get_corrected_page_data_url(pdf_path, page_index=page_index)
     client = _get_client()
@@ -119,11 +137,37 @@ def extract_document_annotation(
     else:
         raise Exception("Max retries reached — Mistral rate limit not cleared.")
 
+    print(f"  📑 Pages processed: {len(response.pages)}")
+    return response
+
+
+def get_page_table_html(response, page_index: int = 0) -> str:
+    """Pull the OCR'd table HTML for one page out of a response already fetched
+    via call_annotation_api / extract_document_annotation — no extra API call."""
+    page = response.pages[page_index]
+    tables = page.tables or []
+    return "\n".join(t.content for t in tables)
+
+
+def extract_document_annotation(
+    pdf_path: str,
+    response_model: Type[T],
+    document_annotation_prompt: Optional[str] = None,
+    max_retries: int = 5,
+    page_index: int = 0,
+) -> T:
+    """
+    Single-call OCR + structured extraction, on a rotation-corrected page.
+
+    `response_model` is a Pydantic model describing exactly the JSON shape
+    you want back. Mistral guarantees the output conforms to it.
+    """
+    response = call_annotation_api(
+        pdf_path, response_model, document_annotation_prompt, max_retries, page_index
+    )
     annotation = response.document_annotation
     if isinstance(annotation, str):
         annotation = json.loads(annotation)
-
-    print(f"  📑 Pages processed: {len(response.pages)}")
     return response_model.model_validate(annotation)
 
 
@@ -143,24 +187,6 @@ def extract_text_from_pdf(pdf_path: str, page_index: int = 0) -> str:
     )
     print(f"  📑 Pages extracted: {len(response.pages)}")
     return "\n".join(p.markdown or "" for p in response.pages)
-
-def get_raw_table_html(pdf_path: str, page_index: int = 0) -> str:
-    """
-    Get raw OCR table HTML for one page — no schema/annotation involved.
-    Used as a fallback to pull section_txw via regex when the annotation
-    step misses it despite the data being present in the OCR'd HTML.
-    """
-    data_url = _get_corrected_page_data_url(pdf_path, page_index=page_index)
-    client = _get_client()
-    response = client.ocr.process(
-        model="mistral-ocr-latest",
-        document=ImageURLChunk(image_url=data_url),
-        table_format="html",
-    )
-    page = response.pages[page_index]
-    tables = page.tables or []
-    return "\n".join(t.content for t in tables)
-
 
 # ── CLI test ─────────────────────────────────────────────────────────────────
 if __name__ == "__main__":

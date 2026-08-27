@@ -11,10 +11,12 @@ same call).
 
 from typing import List
 
+import json
+import re
+
 from pydantic import BaseModel, Field
 
-import re
-from .ocr import extract_document_annotation, get_raw_table_html
+from .ocr import extract_document_annotation, call_annotation_api, get_page_table_html
 
 # ── Shared building blocks ───────────────────────────────────────────────────
 
@@ -115,8 +117,9 @@ class TestCertificate(BaseModel):
         default_factory=list, description="Actual measured mechanical test values (YS MPa, UTS MPa, EL %, BH, ...)"
     )
 
+
 def _extract_txw_from_html(html: str) -> list:
-    """Pull TxW values out of raw HTML — two known formats."""
+    """Pull TxW values out of raw OCR table HTML — known formats."""
     results = []
 
     # Format A: "Section(TxW): 0.960x1250.000mm"
@@ -134,7 +137,7 @@ def _extract_txw_from_html(html: str) -> list:
         if val not in results:
             results.append(val)
 
-     # Format C: "<td>3.00 x 1250 x C</td>" — thickness x width x C (C = continuous, coils)
+    # Format C: "<td>3.00 x 1250 x C</td>" — thickness x width x C (C = continuous, coils)
     pattern_c = r'<td>\s*([0-9]+(?:\.[0-9]+)?)\s*x\s*([0-9]+(?:\.[0-9]+)?)\s*x\s*[A-Za-z]+\s*</td>'
     for m in re.finditer(pattern_c, html, flags=re.IGNORECASE):
         thickness, width = m.group(1), m.group(2)
@@ -144,9 +147,19 @@ def _extract_txw_from_html(html: str) -> list:
 
     return results
 
+
 def extract_test_json(pdf_path: str, pdf_name: str = "") -> dict:
     """
     Extract ACTUAL measured values from a mill certificate / test report PDF.
+
+    Keys are extracted verbatim as printed (freeform) — an earlier version of
+    this prompt tried steering the model toward standards_json's canonical
+    element vocabulary, but that measurably corrupted column alignment on
+    real certificates (values got assigned to the wrong element on multi-row
+    HTML tables). The deterministic comparator's key normalization
+    (deterministic/normalize.py) already bridges naming differences like
+    "Al" vs "Al%" without needing extraction to know the standard's exact
+    key strings, so there's no accuracy trade-off in keeping this freeform.
 
     Returns:
     {
@@ -190,13 +203,21 @@ CRITICAL — number formatting:
 - If a field is not present in the document, leave it as an empty string rather than guessing."""
 
     print(f"  🤖 Extracting test values from: {pdf_name}…")
-    result = extract_document_annotation(pdf_path, TestCertificate, document_annotation_prompt=prompt)
+    response = call_annotation_api(pdf_path, TestCertificate, document_annotation_prompt=prompt)
+
+    annotation = response.document_annotation
+    if isinstance(annotation, str):
+        annotation = json.loads(annotation)
+    result = TestCertificate.model_validate(annotation)
 
     section_txw = result.section_txw
     if not section_txw:
+        # The schema-based pass sometimes drops label:value pairs that sit inside a
+        # merged multi-line table cell (e.g. "Section(TxW): 3.000x1250.000mm" packed
+        # alongside "Grade:"/"TDC No:" in one <td>) even though the OCR'd table HTML
+        # from this SAME call has it verbatim — regex-rescue from that, no 2nd API call.
         try:
-            raw_html = get_raw_table_html(pdf_path)
-            section_txw = _extract_txw_from_html(raw_html)
+            section_txw = _extract_txw_from_html(get_page_table_html(response))
         except Exception:
             pass
 

@@ -57,6 +57,24 @@ export function getPropertiesByType(
   });
 }
 
+function isMechanicalKey(key = "") {
+  return Array.from(MECH_KEYWORDS).some((kw) => key.toLowerCase().includes(kw));
+}
+
+export function splitResultByType(result) {
+  const chemical = { matched: {}, not_in_standard: {}, not_in_test: {} };
+  const mechanical = { matched: {}, not_in_standard: {}, not_in_test: {} };
+
+  for (const section of ["matched", "not_in_standard", "not_in_test"]) {
+    for (const [key, value] of Object.entries(result?.[section] || {})) {
+      const target = isMechanicalKey(key) ? mechanical : chemical;
+      target[section][key] = value;
+    }
+  }
+
+  return { chemical, mechanical };
+}
+
 export function getPropertyCount(result) {
   const matched = Object.keys(
     result?.matched || {}

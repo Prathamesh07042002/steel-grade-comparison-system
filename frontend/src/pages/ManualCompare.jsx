@@ -20,6 +20,7 @@ import {
 import {
   parseProperties,
   renderStandardProperties,
+  splitResultByType,
 } from "../utils/propertyUtils";
 import { trackEvent } from "../ga";
 // Relative, subpath-aware base ("/api" in dev, "/tc_compliance/api" in a
@@ -33,7 +34,12 @@ const STEPS = [
   { id: "results", title: "Results", subtitle: "Pass / fail breakdown", icon: <IconTrophy className="w-6 h-6" /> },
 ];
 
-export default function ManualCompare({ initialFile, onFileChange }) {
+export default function ManualCompare({
+  initialFile,
+  onFileChange,
+  initialTestData,
+  onTestDataChange,
+}) {
   const [currentStep, setCurrentStep] = useState(0);
 
   const [uploadedFile, setUploadedFile] = useState(null);
@@ -65,7 +71,7 @@ export default function ManualCompare({ initialFile, onFileChange }) {
     }
   };
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = (e, cachedTestData = null) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -81,7 +87,9 @@ export default function ManualCompare({ initialFile, onFileChange }) {
     setSelectedDesignation(null);
     setStandardDetails(null);
     setError(null);
-    setTestData(null);
+    // Reuse an already-extracted result carried over from Auto Compare for
+    // this same file, instead of wiping it and re-running OCR.
+    setTestData(cachedTestData);
     setChemResult(null);
     setMechResult(null);
     setShowPdfPreview(false);
@@ -95,7 +103,7 @@ export default function ManualCompare({ initialFile, onFileChange }) {
 
   useEffect(() => {
     if (!initialFile || initialFile === uploadedFile) return;
-    handleFileUpload({ target: { files: [initialFile] } });
+    handleFileUpload({ target: { files: [initialFile] } }, initialTestData);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialFile]);
 
@@ -136,31 +144,38 @@ export default function ManualCompare({ initialFile, onFileChange }) {
         app_name: "Test Certificate Compliance",
       });
 
-      const formData = new FormData();
-      formData.append("file", uploadedFile);
+      let testEntry = testData;
+      if (!testEntry) {
+        const formData = new FormData();
+        formData.append("file", uploadedFile);
 
-      const extractRes = await axios.post(`${API_BASE_URL}/extract/test-json`, formData);
-      const testEntry = extractRes.data.test_data;
-      setTestData(testEntry);
+        const extractRes = await axios.post(`${API_BASE_URL}/extract/test-json`, formData);
+        testEntry = extractRes.data.test_data;
+        setTestData(testEntry);
+        onTestDataChange?.(testEntry);
+      }
 
       const stdData = standardDetails[selectedDesignation];
       const stdProps = parseProperties(stdData?.parameters || []);
 
-      const chemRes = await axios.post(`${API_BASE_URL}/compare/direct`, {
-        test_props: testEntry.chemical_properties || {},
-        std_props: stdProps.chemical_properties || {},
+      const compareRes = await axios.post(`${API_BASE_URL}/compare/direct`, {
+        test_props: {
+          ...(testEntry.chemical_properties || {}),
+          ...(testEntry.mechanical_properties || {}),
+        },
+        std_props: {
+          ...(stdProps.chemical_properties || {}),
+          ...(stdProps.mechanical_properties || {}),
+        },
       });
 
-      const mechRes = await axios.post(`${API_BASE_URL}/compare/direct`, {
-        test_props: testEntry.mechanical_properties || {},
-        std_props: stdProps.mechanical_properties || {},
-      });
-
-      setChemResult(chemRes.data.result);
-      setMechResult(mechRes.data.result);
+      const { chemical, mechanical } = splitResultByType(compareRes.data.result);
+      setChemResult(chemical);
+      setMechResult(mechanical);
       setCurrentStep(2);
     } catch (err) {
-      setError("Comparison failed");
+      console.error("Comparison failed:", err);
+      setError(err.response?.data?.detail || "Comparison failed");
     } finally {
       setLoading(false);
     }

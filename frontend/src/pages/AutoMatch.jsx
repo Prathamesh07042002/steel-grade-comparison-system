@@ -27,7 +27,13 @@ const STEPS = [
   { id: "results", title: "Results", subtitle: "Best-matching grade", icon: <IconTrophy className="w-6 h-6" /> },
 ];
 
-export default function AutoMatch({ onHeaderActionsChange, initialFile, onFileChange }) {
+export default function AutoMatch({
+  onHeaderActionsChange,
+  initialFile,
+  onFileChange,
+  initialTestData,
+  onTestDataChange,
+}) {
   const [currentStep, setCurrentStep] = useState(0);
 
   const [uploadedFile, setUploadedFile] = useState(null);
@@ -125,7 +131,7 @@ export default function AutoMatch({ onHeaderActionsChange, initialFile, onFileCh
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, autoResult]);
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = (e, cachedTestData = null) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -137,7 +143,9 @@ export default function AutoMatch({ onHeaderActionsChange, initialFile, onFileCh
     setUploadedFile(file);
     onFileChange?.(file);
     setAutoResult(null);
-    setTestData(null);
+    // Reuse an already-extracted result carried over from Manual Compare for
+    // this same file, instead of wiping it and re-running OCR.
+    setTestData(cachedTestData);
     setError(null);
     setShowPdfPreview(false);
 
@@ -150,7 +158,7 @@ export default function AutoMatch({ onHeaderActionsChange, initialFile, onFileCh
 
   useEffect(() => {
     if (!initialFile || initialFile === uploadedFile) return;
-    handleFileUpload({ target: { files: [initialFile] } });
+    handleFileUpload({ target: { files: [initialFile] } }, initialTestData);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialFile]);
 
@@ -169,15 +177,27 @@ export default function AutoMatch({ onHeaderActionsChange, initialFile, onFileCh
         app_name: "Test Certificate Compliance",
       });
 
-      const formData = new FormData();
-      formData.append("file", uploadedFile);
+      let res;
+      if (testData) {
+        // Already extracted (e.g. from Manual Compare on the same file) —
+        // skip re-uploading/re-OCRing the PDF.
+        res = await axios.post(`${API_BASE_URL}/compare/auto-from-data`, {
+          test_data: testData,
+          filename: uploadedFile.name,
+        });
+      } else {
+        const formData = new FormData();
+        formData.append("file", uploadedFile);
+        res = await axios.post(`${API_BASE_URL}/compare/auto`, formData);
+      }
 
-      const res = await axios.post(`${API_BASE_URL}/compare/auto`, formData);
       setAutoResult(res.data);
       setTestData(res.data.test_data);
+      onTestDataChange?.(res.data.test_data);
       setCurrentStep(2);
     } catch (err) {
-      setError("Auto match failed");
+      console.error("Auto match failed:", err);
+      setError(err.response?.data?.detail || "Auto match failed");
     } finally {
       setLoading(false);
     }

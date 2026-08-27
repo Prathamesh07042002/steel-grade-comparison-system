@@ -18,14 +18,25 @@ export default function App() {
   const [activePage, setActivePage] = useState("landing");
   const [headerActions, setHeaderActions] = useState(null);
   const [sharedFile, setSharedFile] = useState(null);
+  // Cached OCR/extraction result for sharedFile, so switching between Manual
+  // and Auto Compare on the same uploaded file doesn't re-run OCR. Cleared
+  // whenever the underlying file actually changes (see handleFileChange).
+  const [sharedTestData, setSharedTestData] = useState(null);
 
   useEffect(() => {
     loadGA("Test Certificate Compliance");
   }, []);
 
+  const handleFileChange = (file) => {
+    if (file !== sharedFile) {
+      setSharedTestData(null);
+    }
+    setSharedFile(file);
+  };
+
   const navigate = (page, file) => {
     setHeaderActions(null);
-    if (file) setSharedFile(file);
+    if (file) handleFileChange(file);
     setActivePage(page);
   };
 
@@ -44,13 +55,20 @@ export default function App() {
       actions={headerActions}
     >
       {activePage === "manual" && (
-        <ManualCompare initialFile={sharedFile} onFileChange={setSharedFile} />
+        <ManualCompare
+          initialFile={sharedFile}
+          onFileChange={handleFileChange}
+          initialTestData={sharedTestData}
+          onTestDataChange={setSharedTestData}
+        />
       )}
       {activePage === "auto" && (
         <AutoMatch
           onHeaderActionsChange={setHeaderActions}
           initialFile={sharedFile}
-          onFileChange={setSharedFile}
+          onFileChange={handleFileChange}
+          initialTestData={sharedTestData}
+          onTestDataChange={setSharedTestData}
         />
       )}
     </AppShell>

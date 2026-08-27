@@ -29,7 +29,7 @@ sys.path.insert(0, backend_dir)
 
 from comparator.src.ocr import extract_text_from_pdf
 from comparator.src.extractor import extract_test_json
-from comparator.src.comparator import direct_compare, llm_compare
+from comparator.src.comparator import direct_compare, auto_compare
 from comparator.src.report import generate_pdf_report
 
 app = FastAPI(title="Test Certificate Compliance API", version="1.0.0")
@@ -65,6 +65,11 @@ if os.path.isdir(STANDARDS_JSON_DIR):
 class DirectCompareRequest(BaseModel):
     test_props: Dict
     std_props: Dict
+
+
+class AutoCompareFromDataRequest(BaseModel):
+    test_data: Dict
+    filename: str = ""
 
 
 class ComparisonResult(BaseModel):
@@ -239,15 +244,15 @@ async def compare_auto(file: UploadFile = File(...)):
         # extract_text_from_pdf() step, and no standalone char-count print.
         print(f"  📋 Extracting test values (OCR + extraction combined)…")
         test_entry = extract_test_json(tmp_path, pdf_name=file.filename)
-        
+
         if not test_entry:
             raise HTTPException(status_code=400, detail="No data could be extracted from this PDF. The PDF may not contain valid steel test data.")
-        
+
         print(f"  ✅ Test data extracted: {list(test_entry.keys())}")
-        
-        # Auto-match
-        print(f"  🤖 Running LLM auto-match against standards…")
-        result = llm_compare(test_entry, STANDARDS_JSON_DIR, pdf_filename=file.filename)
+
+        # Auto-match — deterministic, no LLM call
+        print(f"  🔍 Running auto-match against standards…")
+        result = auto_compare(test_entry, STANDARDS_JSON_DIR, pdf_filename=file.filename)
         print(f"  ✅ Auto-match complete")
         
         return {
@@ -268,6 +273,37 @@ async def compare_auto(file: UploadFile = File(...)):
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
+
+
+@app.post("/compare/auto-from-data")
+async def compare_auto_from_data(request: AutoCompareFromDataRequest):
+    """
+    Pipeline 2, reusing an already-extracted test_data dict (e.g. from a prior
+    /extract/test-json or /compare/auto call on the same file) instead of
+    re-uploading the PDF and re-running OCR.
+    """
+    try:
+        test_entry = request.test_data
+        if not test_entry:
+            raise HTTPException(status_code=400, detail="test_data is required")
+
+        result = auto_compare(test_entry, STANDARDS_JSON_DIR, pdf_filename=request.filename)
+
+        return {
+            "success": True,
+            "filename": request.filename,
+            "test_data": test_entry,
+            "result": result
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"  ❌ Error in compare/auto-from-data: {e}")
+        print(error_trace)
+        raise HTTPException(status_code=500, detail=f"Auto-match failed: {str(e)}")
 
 
 # ── Report Generation ──────────────────────────────────────────────────────────
