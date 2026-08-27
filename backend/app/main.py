@@ -275,7 +275,7 @@ async def compare_auto(file: UploadFile = File(...)):
             os.unlink(tmp_path)
 
 
-@app.post("/compare/auto-from-data")
+@api.post("/compare/auto-from-data")
 async def compare_auto_from_data(request: AutoCompareFromDataRequest):
     """
     Pipeline 2, reusing an already-extracted test_data dict (e.g. from a prior
